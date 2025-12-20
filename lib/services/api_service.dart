@@ -1,8 +1,39 @@
 import 'dart:convert';
+import 'package:church_member_app/utils/storage.dart';
 import 'package:http/http.dart' as http;
 
 class ApiService {
-  static const String baseUrl = 'http://YOUR_SERVER_IP:4000/api';
+  static const String baseUrl = 'http://172.20.10.2:4000/api';
+  static Future<void> saveProfile(
+     String fullName,
+     String comingFrom,
+     int sinceYear,
+     String memberType,     // guest | regular
+     String attendingWith,  // alone | family | friends
+  ) async {
+    final authToken = await Storage.getToken();
+const apiUrl = '$baseUrl/member/profile';
+    print('API URL:$apiUrl');
+    final response = await http.post(
+      Uri.parse('$baseUrl/member/profile'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $authToken',
+      },
+      body: jsonEncode({
+        'full_name': fullName,
+        'coming_from': comingFrom,
+        'since_year': sinceYear,
+        'member_type': memberType,
+        'attending_with': attendingWith,
+      }),
+    );
+    print('${response.body}');
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to save profile');
+    }
+  }
 
   static Future<void> sendOtp(String phone) async {
     final response = await http.post(
@@ -51,6 +82,7 @@ class ApiService {
       String authToken,
       String? prayerRequest,
       ) async {
+
     final response = await http.post(
       Uri.parse('$baseUrl/member/register/submit'),
       headers: {

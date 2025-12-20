@@ -22,7 +22,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       fromCtrl.text,
       int.parse(yearCtrl.text),
       memberType,
-      attendingWith,
+      attendingWith
     );
 
     Navigator.pop(context, true);

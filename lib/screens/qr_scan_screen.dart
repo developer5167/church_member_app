@@ -10,8 +10,12 @@ class QrScanScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Scan QR')),
       body: MobileScanner(
-        onDetect: (BarcodeCapture barcode, args) {
-          final String? url = barcode.rawValue;
+        onDetect: (BarcodeCapture capture) {
+          final List<Barcode> barcodes = capture.barcodes;
+
+          if (barcodes.isEmpty) return;
+
+          final String? url = barcodes.first.rawValue;
           if (url == null) return;
 
           final uri = Uri.parse(url);

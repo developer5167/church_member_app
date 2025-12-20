@@ -5,6 +5,7 @@ import '../utils/storage.dart';
 
 class OtpScreen extends StatefulWidget {
   final String phone;
+
   const OtpScreen({super.key, required this.phone});
 
   @override
@@ -17,18 +18,18 @@ class _OtpScreenState extends State<OtpScreen> {
 
   void verifyOtp() async {
     setState(() => loading = true);
+    try {
+      final token = await ApiService.verifyOtp(widget.phone, otpController.text);
+      await Storage.saveToken(token);
 
-    final token =
-    await ApiService.verifyOtp(widget.phone, otpController.text);
-    await Storage.saveToken(token);
+      setState(() => loading = false);
 
-    setState(() => loading = false);
-
-    // NEXT SCREEN WILL BE QR SCAN
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (_) => const QrScanScreen()),
-    );
+      // NEXT SCREEN WILL BE QR SCAN
+      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const QrScanScreen()));
+    } catch (e) {
+      setState(() => loading = false);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+    }
   }
 
   @override
@@ -42,16 +43,12 @@ class _OtpScreenState extends State<OtpScreen> {
             TextField(
               controller: otpController,
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'Enter OTP',
-              ),
+              decoration: const InputDecoration(labelText: 'Enter OTP'),
             ),
             const SizedBox(height: 20),
             ElevatedButton(
               onPressed: loading ? null : verifyOtp,
-              child: loading
-                  ? const CircularProgressIndicator()
-                  : const Text('Verify'),
+              child: loading ? const CircularProgressIndicator() : const Text('Verify'),
             ),
           ],
         ),
