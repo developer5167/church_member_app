@@ -1,3 +1,4 @@
+import 'package:church_member_app/flavor/flavor_config.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -187,7 +188,7 @@ class _LoginScreenState extends State<LoginScreen>
                               ],
                             ),
                             child: Image.asset(
-                              'assets/images/lordsChurch.jpg',
+                              FlavorConfig.instance.values.logoAsset,
                               fit: BoxFit.contain,
                             ),
                           ),
@@ -199,7 +200,7 @@ class _LoginScreenState extends State<LoginScreen>
                         Column(
                           children: [
                             Text(
-                              'The Lords Church',
+                              FlavorConfig.instance.values.appName,
                               style: GoogleFonts.playfairDisplay(
                                 textStyle: TextStyle(
                                   fontSize: 32,

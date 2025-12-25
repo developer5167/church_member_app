@@ -5,6 +5,7 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+
 android {
     namespace = "com.example.church_member_app"
     compileSdk = flutter.compileSdkVersion
@@ -35,6 +36,15 @@ android {
             // TODO: Add your own signing config for the release build.
             // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.getByName("debug")
+        }
+    }
+    flavorDimensions += "church"
+
+    productFlavors {
+        create("lordsChurch") {
+            dimension = "church"
+            applicationId = "com.church.lords"
+            resValue("string", "church_flavor", "Lords Church")
         }
     }
 }

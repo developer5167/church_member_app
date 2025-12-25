@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:church_member_app/screens/qr_scan_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../flavor/flavor_config.dart';
 import '../services/api_service.dart';
 import '../utils/storage.dart';
 
@@ -272,7 +273,7 @@ class _OtpScreenState extends State<OtpScreen>
                             ),
                             const Spacer(),
                             Image.asset(
-                              'assets/images/lordsChurch.jpg',
+                              FlavorConfig.instance.values.logoAsset,
                               fit: BoxFit.contain,
                               width: 50,
                               height: 50,

@@ -1,0 +1,3 @@
+enum AppFlavor {
+  lordsChurch,
+}

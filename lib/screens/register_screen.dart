@@ -5,6 +5,7 @@ import 'package:church_member_app/screens/qr_scan_screen.dart';
 import 'package:church_member_app/screens/success_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../flavor/flavor_config.dart' show FlavorConfig;
 import '../services/api_service.dart';
 import '../utils/storage.dart';
 
@@ -415,7 +416,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                             ),
                             const Spacer(),
                             Image.asset(
-                              'assets/images/lordsChurch.jpg',
+                              FlavorConfig.instance.values.logoAsset,
                               fit: BoxFit.contain,
                               width: 50,
                               height: 50,

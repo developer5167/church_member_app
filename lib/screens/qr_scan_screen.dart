@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:church_member_app/flavor/flavor_config.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
@@ -292,7 +293,7 @@ class _QrScanScreenState extends State<QrScanScreen>
                             ),
                           ),
                           Image.asset(
-                            'assets/images/lordsChurch.jpg',
+                            FlavorConfig.instance.values.logoAsset,
                             fit: BoxFit.contain,
                             width: 50,
                             height: 50,
