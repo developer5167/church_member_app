@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:developer';
 import 'package:church_member_app/screens/profile_screen.dart';
 import 'package:church_member_app/screens/qr_scan_screen.dart';
+import 'package:church_member_app/screens/home_screen.dart';
 import 'package:church_member_app/screens/success_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -133,7 +134,7 @@ class _RegisterScreenState extends State<RegisterScreen>
           context,
           PageRouteBuilder(
             pageBuilder: (context, animation, secondaryAnimation) =>
-                const QrScanScreen(),
+                const HomeScreen(),
             transitionsBuilder:
                 (context, animation, secondaryAnimation, child) {
                   const begin = Offset(-1.0, 0.0);

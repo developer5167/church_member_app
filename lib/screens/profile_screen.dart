@@ -1,11 +1,14 @@
 import 'dart:async';
+import 'package:church_member_app/flavor/flavor_config.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../services/api_service.dart';
 import '../utils/storage.dart';
 
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({super.key});
+  final bool embedded;
+  const ProfileScreen({super.key, this.embedded = false});
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -21,6 +24,7 @@ class _ProfileScreenState extends State<ProfileScreen>
   String attendingWith = 'alone';
   bool loading = false;
   bool saving = false;
+  bool isEditing = false;
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   late Animation<double> _scaleAnimation;
@@ -121,7 +125,7 @@ class _ProfileScreenState extends State<ProfileScreen>
 
       // Show success and pop
       _showSuccessDialog('Profile saved successfully!', () {
-        Navigator.pop(context, true);
+        Navigator.pop(context);
       });
     } catch (e) {
       HapticFeedback.heavyImpact();
@@ -210,7 +214,6 @@ class _ProfileScreenState extends State<ProfileScreen>
             ElevatedButton(
               onPressed: () {
                 HapticFeedback.selectionClick();
-                Navigator.pop(context);
                 onOk();
               },
               style: ElevatedButton.styleFrom(
@@ -272,40 +275,49 @@ class _ProfileScreenState extends State<ProfileScreen>
                     opacity: _fadeAnimation,
                     child: Column(
                       children: [
-                        // Header
+                        // Header with edit action
                         Row(
                           children: [
-                            GestureDetector(
-                              onTap: () {
-                                HapticFeedback.lightImpact();
-                                Navigator.pop(context);
-                              },
-                              child: Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(12),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withOpacity(0.05),
-                                      blurRadius: 10,
-                                      spreadRadius: 1,
-                                      offset: const Offset(0, 2),
-                                    ),
-                                  ],
+                            if (!widget.embedded)
+                              GestureDetector(
+                                onTap: () {
+                                  HapticFeedback.lightImpact();
+                                  Navigator.pop(context);
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(12),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.05),
+                                        blurRadius: 10,
+                                        spreadRadius: 1,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: const Icon(
+                                    Icons.arrow_back_rounded,
+                                    color: Colors.black87,
+                                    size: 24,
+                                  ),
                                 ),
-                                child: const Icon(
-                                  Icons.arrow_back_rounded,
-                                  color: Colors.black87,
-                                  size: 24,
-                                ),
-                              ),
-                            ),
+                              )
+                            else
+                              const SizedBox(width: 40),
                             const Spacer(),
-                            const Icon(
-                              Icons.account_circle,
-                              color: Color(0xFF8B0000),
-                              size: 32,
+                            IconButton(
+                              onPressed: () {
+                                HapticFeedback.selectionClick();
+                                setState(() => isEditing = true);
+                              },
+                              icon: const Icon(
+                                Icons.edit,
+                                color: Color(0xFF8B0000),
+                                size: 28,
+                              ),
                             ),
                           ],
                         ),
@@ -431,6 +443,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                                   ),
                                   child: TextField(
                                     controller: nameCtrl,
+                                    enabled: isEditing,
                                     style: const TextStyle(
                                       fontSize: 16,
                                       color: Colors.black87,
@@ -473,6 +486,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                                   ),
                                   child: TextField(
                                     controller: fromCtrl,
+                                    enabled: isEditing,
                                     style: const TextStyle(
                                       fontSize: 16,
                                       color: Colors.black87,
@@ -516,6 +530,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                                   ),
                                   child: TextField(
                                     controller: yearCtrl,
+                                    enabled: isEditing,
                                     keyboardType: TextInputType.number,
                                     style: const TextStyle(
                                       fontSize: 16,
@@ -710,63 +725,69 @@ class _ProfileScreenState extends State<ProfileScreen>
 
                                 const SizedBox(height: 32),
 
-                                // Save Profile Button
-                                SizedBox(
-                                  width: double.infinity,
-                                  height: 56,
-                                  child: ElevatedButton(
-                                    onPressed: saving ? null : saveProfile,
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: const Color(0xFF8B0000),
-                                      disabledBackgroundColor: Colors.grey[400],
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(16),
-                                      ),
-                                      elevation: 0,
-                                    ),
-                                    child: Stack(
-                                      alignment: Alignment.center,
-                                      children: [
-                                        AnimatedOpacity(
-                                          opacity: saving ? 0 : 1,
-                                          duration: const Duration(
-                                            milliseconds: 200,
-                                          ),
-                                          child: const Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              Icon(
-                                                Icons.save,
-                                                color: Colors.white,
-                                                size: 22,
-                                              ),
-                                              SizedBox(width: 12),
-                                              Text(
-                                                'Save Profile',
-                                                style: TextStyle(
-                                                  fontSize: 18,
-                                                  fontWeight: FontWeight.w600,
-                                                  color: Colors.white,
-                                                ),
-                                              ),
-                                            ],
+                                // Save Profile Button (visible only when editing)
+                                if (isEditing)
+                                  SizedBox(
+                                    width: double.infinity,
+                                    height: 56,
+                                    child: ElevatedButton(
+                                      onPressed: saving ? null : saveProfile,
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: const Color(
+                                          0xFF8B0000,
+                                        ),
+                                        disabledBackgroundColor:
+                                            Colors.grey[400],
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            16,
                                           ),
                                         ),
-                                        if (saving)
-                                          SizedBox(
-                                            width: 24,
-                                            height: 24,
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 3,
-                                              color: Colors.white.withOpacity(
-                                                0.9,
-                                              ),
+                                        elevation: 0,
+                                      ),
+                                      child: Stack(
+                                        alignment: Alignment.center,
+                                        children: [
+                                          AnimatedOpacity(
+                                            opacity: saving ? 0 : 1,
+                                            duration: const Duration(
+                                              milliseconds: 200,
+                                            ),
+                                            child: const Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Icon(
+                                                  Icons.save,
+                                                  color: Colors.white,
+                                                  size: 22,
+                                                ),
+                                                SizedBox(width: 12),
+                                                Text(
+                                                  'Update Details',
+                                                  style: TextStyle(
+                                                    fontSize: 18,
+                                                    fontWeight: FontWeight.w600,
+                                                    color: Colors.white,
+                                                  ),
+                                                ),
+                                              ],
                                             ),
                                           ),
-                                      ],
+                                          if (saving)
+                                            SizedBox(
+                                              width: 24,
+                                              height: 24,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 3,
+                                                color: Colors.white.withOpacity(
+                                                  0.9,
+                                                ),
+                                              ),
+                                            ),
+                                        ],
+                                      ),
                                     ),
                                   ),
-                                ),
                               ],
                             ),
                           ),
@@ -818,7 +839,98 @@ class _ProfileScreenState extends State<ProfileScreen>
                             ),
                           ),
 
-                          const SizedBox(height: 40),
+                          const SizedBox(height: 24),
+
+                          // Join our channels
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Join our channels whatsapp channels for latest updates',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.grey[800],
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              SizedBox(
+                                width: double.infinity,
+                                child: ElevatedButton(
+                                  onPressed: () async {
+                                    final uri = Uri.parse(
+                                      'https://whatsapp.com/channel/0029Vb0YkfqDeON0u7PWXY1G',
+                                    );
+                                    if (!await launchUrl(
+                                      uri,
+                                      mode: LaunchMode.externalApplication,
+                                    )) {
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        const SnackBar(
+                                          content: Text(
+                                            'Could not open WhatsApp',
+                                          ),
+                                        ),
+                                      );
+                                    }
+                                  },
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor:const Color(0xFF25D366),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                  child: const Padding(
+                                    padding: EdgeInsets.symmetric(vertical: 14),
+                                    child: Text(
+                                      'Follow Jessy Paul on WhatsApp',style: TextStyle(color: Colors.white),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              SizedBox(
+                                width: double.infinity,
+                                child: ElevatedButton(
+                                  onPressed: () async {
+                                    final uri = Uri.parse(
+                                      'https://whatsapp.com/channel/0029ValI9TD9cDDT6ArJVJ30',
+                                    );
+                                    if (!await launchUrl(
+                                      uri,
+                                      mode: LaunchMode.externalApplication,
+                                    )) {
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        const SnackBar(
+                                          content: Text(
+                                            'Could not open WhatsApp',
+                                          ),
+                                        ),
+                                      );
+                                    }
+                                  },
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFF25D366),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                  child: const Padding(
+                                    padding: EdgeInsets.symmetric(vertical: 14),
+                                    child: Text(
+                                      'Follow Raj Prakash Paul on WhatsApp',style: TextStyle(color: Colors.white)
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+
+                          const SizedBox(height: 24),
 
                           // Footer
                           Center(

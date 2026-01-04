@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "80861118730",
+    "project_id": "church-registration-model",
+    "storage_bucket": "church-registration-model.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:80861118730:android:4099b474860ca290833af3",
+        "android_client_info": {
+          "package_name": "com.church.lords"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDh8oKz8QPU_teL5LLQ3i7h29KoGbPsl-o"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

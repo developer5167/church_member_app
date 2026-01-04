@@ -1,11 +1,13 @@
 import 'dart:async';
 
 import 'package:church_member_app/screens/qr_scan_screen.dart';
+import 'package:church_member_app/screens/home_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../flavor/flavor_config.dart';
 import '../services/api_service.dart';
 import '../utils/storage.dart';
+import '../services/firebase_otp_service.dart';
 
 class OtpScreen extends StatefulWidget {
   final String phone;
@@ -115,7 +117,7 @@ class _OtpScreenState extends State<OtpScreen>
         context,
         PageRouteBuilder(
           pageBuilder: (context, animation, secondaryAnimation) =>
-              const QrScanScreen(),
+              const HomeScreen(),
           transitionsBuilder: (context, animation, secondaryAnimation, child) {
             const begin = Offset(1.0, 0.0);
             const end = Offset.zero;
@@ -139,6 +141,53 @@ class _OtpScreenState extends State<OtpScreen>
       setState(() => loading = false);
     }
   }
+  // void _verifyOtp() async {
+  //   if (!_isOtpComplete()) {
+  //     HapticFeedback.lightImpact();
+  //     _showErrorDialog('Please enter the complete 6-digit OTP');
+  //     return;
+  //   }
+  //
+  //   HapticFeedback.mediumImpact();
+  //   setState(() => loading = true);
+  //
+  //   try {
+  //     await FirebaseOtpService.verifyOtp(_getOtp());
+  //     final token = await ApiService.verifyOtp(widget.phone, _getOtp());
+  //     await Storage.saveToken(token);
+  //
+  //     HapticFeedback.selectionClick();
+  //
+  //     await Navigator.pushAndRemoveUntil(
+  //       context,
+  //       PageRouteBuilder(
+  //         pageBuilder: (context, animation, secondaryAnimation) =>
+  //             const HomeScreen(),
+  //         transitionsBuilder: (context, animation, secondaryAnimation, child) {
+  //           const begin = Offset(1.0, 0.0);
+  //           const end = Offset.zero;
+  //           const curve = Curves.easeInOut;
+  //
+  //           var tween = Tween(
+  //             begin: begin,
+  //             end: end,
+  //           ).chain(CurveTween(curve: curve));
+  //
+  //           return SlideTransition(
+  //             position: animation.drive(tween),
+  //             child: child,
+  //           );
+  //         },
+  //         transitionDuration: const Duration(milliseconds: 400),
+  //       ),
+  //       (route) => false,
+  //     );
+  //   } catch (e) {
+  //     HapticFeedback.heavyImpact();
+  //     _showErrorDialog(e.toString());
+  //     setState(() => loading = false);
+  //   }
+  // }
 
   void _resendOtp() async {
     if (_remainingTime > 0) return;
@@ -172,6 +221,38 @@ class _OtpScreenState extends State<OtpScreen>
       _showErrorDialog('Failed to resend OTP. Please try again.');
     }
   }
+  // void _resendOtp() async {
+  //   if (_remainingTime > 0) return;
+  //
+  //   HapticFeedback.mediumImpact();
+  //
+  //   try {
+  //     await FirebaseOtpService.sendOtp(widget.phone);
+  //
+  //     setState(() => _remainingTime = 30);
+  //     _startTimer();
+  //
+  //     for (var controller in _otpControllers) {
+  //       controller.clear();
+  //     }
+  //
+  //     FocusScope.of(context).requestFocus(_focusNodes[0]);
+  //
+  //     ScaffoldMessenger.of(context).showSnackBar(
+  //       SnackBar(
+  //         content: const Text('OTP resent successfully'),
+  //         backgroundColor: const Color(0xFF8B0000),
+  //         behavior: SnackBarBehavior.floating,
+  //         shape: RoundedRectangleBorder(
+  //           borderRadius: BorderRadius.circular(12),
+  //         ),
+  //       ),
+  //     );
+  //   } catch (e) {
+  //     HapticFeedback.heavyImpact();
+  //     _showErrorDialog('Failed to resend OTP. Please try again.');
+  //   }
+  // }
 
   void _showErrorDialog(String message) {
     showDialog(

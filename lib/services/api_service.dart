@@ -1,18 +1,21 @@
 import 'dart:convert';
+import 'package:church_member_app/flavor/flavor_config.dart';
 import 'package:church_member_app/utils/storage.dart';
 import 'package:http/http.dart' as http;
 
 class ApiService {
-  static const String baseUrl = 'http://172.20.10.2:4000/api';
+  // static const String baseUrl = 'http://172.20.10.2:4000/api';
+  static const String baseUrl = 'http://192.168.31.196:4000/api'; //home
+
   static Future<void> saveProfile(
-     String fullName,
-     String comingFrom,
-     int sinceYear,
-     String memberType,     // guest | regular
-     String attendingWith,  // alone | family | friends
+    String fullName,
+    String comingFrom,
+    int sinceYear,
+    String memberType, // guest | regular
+    String attendingWith, // alone | family | friends
   ) async {
     final authToken = await Storage.getToken();
-const apiUrl = '$baseUrl/member/profile';
+    const apiUrl = '$baseUrl/member/profile';
     print('API URL:$apiUrl');
     final response = await http.post(
       Uri.parse('$baseUrl/member/profile'),
@@ -51,7 +54,7 @@ const apiUrl = '$baseUrl/member/profile';
     final response = await http.post(
       Uri.parse('$baseUrl/member/verify-otp'),
       headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'phone': phone, 'otp': otp}),
+      body: jsonEncode({'phone': phone, 'otp': otp,"churchId":FlavorConfig.instance.values.churchId}),
     );
 
     if (response.statusCode != 200) {
@@ -61,13 +64,14 @@ const apiUrl = '$baseUrl/member/profile';
     final data = jsonDecode(response.body);
     return data['token'];
   }
+
   static Future<Map<String, dynamic>> fetchMetadata(
-      String token, String authToken) async {
+    String token,
+    String authToken,
+  ) async {
     final response = await http.get(
       Uri.parse('$baseUrl/member/register/metadata?token=$token'),
-      headers: {
-        'Authorization': 'Bearer $authToken',
-      },
+      headers: {'Authorization': 'Bearer $authToken'},
     );
 
     if (response.statusCode != 200) {
@@ -78,11 +82,10 @@ const apiUrl = '$baseUrl/member/profile';
   }
 
   static Future<void> submitAttendance(
-      String serviceId,
-      String authToken,
-      String? prayerRequest,
-      ) async {
-
+    String serviceId,
+    String authToken,
+    String? prayerRequest,
+  ) async {
     final response = await http.post(
       Uri.parse('$baseUrl/member/register/submit'),
       headers: {
@@ -99,6 +102,7 @@ const apiUrl = '$baseUrl/member/profile';
       throw Exception('Already registered or failed');
     }
   }
+
   static Future<Map<String, dynamic>> getProfile(String authToken) async {
     final response = await http.get(
       Uri.parse('$baseUrl/member/profile'),
@@ -108,5 +112,18 @@ const apiUrl = '$baseUrl/member/profile';
     return jsonDecode(response.body);
   }
 
+  static Future<String?> getPaymentLink(String authToken) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/member/payment-link'),
+      headers: {'Authorization': 'Bearer $authToken'},
+    );
+    print('RESPONSE:  ${response.body}');
 
+    if (response.statusCode != 200) {
+      throw Exception(response.body);
+    }
+
+    final data = jsonDecode(response.body);
+    return data['paymentLink'];
+  }
 }

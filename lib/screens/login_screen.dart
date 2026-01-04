@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../services/api_service.dart';
 import 'otp_screen.dart';
+import '../services/firebase_otp_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -50,7 +51,56 @@ class _LoginScreenState extends State<LoginScreen>
     phoneController.dispose();
     super.dispose();
   }
-
+  // void sendOtp() async {
+  //   if (phoneController.text.isEmpty) {
+  //     HapticFeedback.lightImpact();
+  //     _showErrorDialog('Please enter your phone number');
+  //     return;
+  //   }
+  //
+  //   if (phoneController.text.length < 10) {
+  //     HapticFeedback.lightImpact();
+  //     _showErrorDialog('Please enter a valid 10-digit phone number');
+  //     return;
+  //   }
+  //
+  //   HapticFeedback.mediumImpact();
+  //   setState(() => loading = true);
+  //
+  //   try {
+  //     await FirebaseOtpService.sendOtp(phoneController.text);
+  //     HapticFeedback.selectionClick();
+  //
+  //     await Navigator.push(
+  //       context,
+  //       PageRouteBuilder(
+  //         pageBuilder: (context, animation, secondaryAnimation) =>
+  //             OtpScreen(phone: phoneController.text),
+  //         transitionsBuilder: (context, animation, secondaryAnimation, child) {
+  //           const begin = Offset(1.0, 0.0);
+  //           const end = Offset.zero;
+  //           const curve = Curves.easeInOut;
+  //
+  //           var tween =
+  //           Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
+  //
+  //           return SlideTransition(
+  //             position: animation.drive(tween),
+  //             child: child,
+  //           );
+  //         },
+  //         transitionDuration: const Duration(milliseconds: 400),
+  //       ),
+  //     );
+  //   } catch (e) {
+  //     HapticFeedback.heavyImpact();
+  //     _showErrorDialog(e.toString());
+  //   } finally {
+  //     if (mounted) {
+  //       setState(() => loading = false);
+  //     }
+  //   }
+  // }
   void sendOtp() async {
     if (phoneController.text.isEmpty) {
       HapticFeedback.lightImpact();
