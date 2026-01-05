@@ -5,7 +5,8 @@ import 'package:http/http.dart' as http;
 
 class ApiService {
   // static const String baseUrl = 'http://172.20.10.2:4000/api';
-  static const String baseUrl = 'http://192.168.31.196:4000/api'; //home
+  // static const String baseUrl = 'http://192.168.31.196:4000/api'; //home
+  static const String baseUrl = 'http://192.168.15.187:4000/api'; //office
 
   static Future<void> saveProfile(
     String fullName,
@@ -104,11 +105,11 @@ class ApiService {
   }
 
   static Future<Map<String, dynamic>> getProfile(String authToken) async {
+    print('Getting profile');
     final response = await http.get(
       Uri.parse('$baseUrl/member/profile'),
       headers: {'Authorization': 'Bearer $authToken'},
     );
-
     return jsonDecode(response.body);
   }
 
