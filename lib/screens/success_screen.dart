@@ -1,3 +1,4 @@
+import 'package:church_member_app/flavor/flavor_config.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -8,7 +9,7 @@ class SuccessScreen extends StatelessWidget {
   const SuccessScreen({
     super.key,
     this.title = 'Registration successful',
-    this.message = 'Your attendance has been recorded successfully.',
+    this.message = 'Your registration has been completed successfully.',
   });
 
   @override
@@ -34,7 +35,7 @@ class SuccessScreen extends StatelessWidget {
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
-                color: Theme.of(context).primaryColor,
+                color: FlavorConfig.instance.values.primaryColor,
               ),
             ),
             const SizedBox(height: 20),
@@ -46,22 +47,31 @@ class SuccessScreen extends StatelessWidget {
             ),
             const SizedBox(height: 30),
 
-            ElevatedButton(
-              onPressed: () {
-                // Option 1: Close app
-                SystemNavigator.pop();
-                // Option 2: Navigate to home if app should stay open
-                // Navigator.pushNamedAndRemoveUntil(
-                //   context,
-                //   '/home',
-                //   (route) => false
-                // );
-              },
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 16),
+        SizedBox(
+          height: 56,
+          child: ElevatedButton.icon(
+            onPressed: () {
+              HapticFeedback.mediumImpact();
+              Navigator.pop(context);
+
+            },
+
+            label: const Text(
+              'Done',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
               ),
-              child: const Text('Done', style: TextStyle(fontSize: 16)),
             ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color.fromARGB(255, 0, 0, 0),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
+        ),
           ],
         ),
       ),

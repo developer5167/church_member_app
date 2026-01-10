@@ -156,7 +156,7 @@ class _ProfileScreenState extends State<ProfileScreen>
           title: const Text(
             'Validation Error',
             style: TextStyle(
-              color: Color(0xFF8B0000),
+              color: Colors.white,
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -168,7 +168,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                 Navigator.pop(context);
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF8B0000),
+                backgroundColor: FlavorConfig.instance.values.primaryColor,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
