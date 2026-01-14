@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'package:church_member_app/flavor/flavor_config.dart';
+import 'package:church_member_app/screens/socialMediaCard.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/api_service.dart';
 import '../utils/storage.dart';
@@ -50,6 +52,19 @@ class _ProfileScreenState extends State<ProfileScreen>
     );
 
     _loadProfile();
+  }
+
+  Future<void> _launchUrl(
+    BuildContext context,
+    String url,
+    String platformName,
+  ) async {
+    final uri = Uri.parse(url);
+    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Could not open $platformName')));
+    }
   }
 
   Future<void> _loadProfile() async {
@@ -155,10 +170,7 @@ class _ProfileScreenState extends State<ProfileScreen>
           backgroundColor: Colors.white,
           title: const Text(
             'Validation Error',
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-            ),
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
           ),
           content: Text(message),
           actions: [
@@ -842,94 +854,8 @@ class _ProfileScreenState extends State<ProfileScreen>
                           const SizedBox(height: 24),
 
                           // Join our channels
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Join our channels whatsapp channels for latest updates',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.grey[800],
-                                ),
-                              ),
-                              const SizedBox(height: 12),
-                              SizedBox(
-                                width: double.infinity,
-                                child: ElevatedButton(
-                                  onPressed: () async {
-                                    final uri = Uri.parse(
-                                      'https://whatsapp.com/channel/0029Vb0YkfqDeON0u7PWXY1G',
-                                    );
-                                    if (!await launchUrl(
-                                      uri,
-                                      mode: LaunchMode.externalApplication,
-                                    )) {
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(
-                                        const SnackBar(
-                                          content: Text(
-                                            'Could not open WhatsApp',
-                                          ),
-                                        ),
-                                      );
-                                    }
-                                  },
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor:const Color(0xFF25D366),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                  ),
-                                  child: const Padding(
-                                    padding: EdgeInsets.symmetric(vertical: 14),
-                                    child: Text(
-                                      'Follow Jessy Paul on WhatsApp',style: TextStyle(color: Colors.white),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 12),
-                              SizedBox(
-                                width: double.infinity,
-                                child: ElevatedButton(
-                                  onPressed: () async {
-                                    final uri = Uri.parse(
-                                      'https://whatsapp.com/channel/0029ValI9TD9cDDT6ArJVJ30',
-                                    );
-                                    if (!await launchUrl(
-                                      uri,
-                                      mode: LaunchMode.externalApplication,
-                                    )) {
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(
-                                        const SnackBar(
-                                          content: Text(
-                                            'Could not open WhatsApp',
-                                          ),
-                                        ),
-                                      );
-                                    }
-                                  },
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xFF25D366),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                  ),
-                                  child: const Padding(
-                                    padding: EdgeInsets.symmetric(vertical: 14),
-                                    child: Text(
-                                      'Follow Raj Prakash Paul on WhatsApp',style: TextStyle(color: Colors.white)
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
 
+                          SocialMedia(context),
                           const SizedBox(height: 24),
 
                           // Footer
@@ -953,6 +879,128 @@ class _ProfileScreenState extends State<ProfileScreen>
           ),
         ),
       ),
+    );
+  }
+
+  Widget SocialMedia(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Follow us on our social media platforms',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: Colors.grey[800],
+          ),
+        ),
+        const SizedBox(height: 20),
+        SocialMediaCard(
+          icon: FontAwesomeIcons.whatsapp,
+          iconColor: Color(0xFF25D366),
+          platformName: 'WhatsApp',
+          accountName: 'Raj Prakash Paul',
+          buttonText: 'Follow',
+          onTap: () => _launchUrl(
+            context,
+            'https://whatsapp.com/channel/0029ValI9TD9cDDT6ArJVJ30',
+            'WhatsApp',
+          ),
+        ),
+        const SizedBox(height: 16),
+        // WhatsApp - Jessy Paul
+        SocialMediaCard(
+          icon: FontAwesomeIcons.whatsapp,
+          iconColor: Color(0xFF25D366),
+          platformName: 'WhatsApp',
+          accountName: 'Jessy Paul',
+          buttonText: 'Follow',
+          onTap: () => _launchUrl(
+            context,
+            'https://whatsapp.com/channel/0029Vb0YkfqDeON0u7PWXY1G',
+            'WhatsApp',
+          ),
+        ),
+
+
+        // WhatsApp - Raj Prakash Paul
+
+        const SizedBox(height: 16),
+
+        // Instagram - Jessy Paul
+        SocialMediaCard(
+          icon: FontAwesomeIcons.instagram,
+          iconColor: Color(0xFFE4405F),
+          platformName: 'Instagram',
+          accountName: 'Jessy Paul',
+          buttonText: 'Follow',
+          onTap: () => _launchUrl(
+            context,
+            'https://www.instagram.com/jessypauln',
+            'Instagram',
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        // Instagram - Raj Prakash Paul
+        SocialMediaCard(
+          icon: FontAwesomeIcons.instagram,
+          iconColor: Color(0xFFE4405F),
+          platformName: 'Instagram',
+          accountName: 'Raj Prakash Paul',
+          buttonText: 'Follow',
+          onTap: () => _launchUrl(
+            context,
+            'https://www.instagram.com/rajprakashpaul',
+            'Instagram',
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        // Instagram - The Lords Church
+        SocialMediaCard(
+          icon: FontAwesomeIcons.instagram,
+          iconColor: Color(0xFFE4405F),
+          platformName: 'Instagram',
+          accountName: 'Lords Church India',
+          buttonText: 'Follow',
+          onTap: () => _launchUrl(
+            context,
+            'https://www.instagram.com/thelordschurchindia',
+            'Instagram',
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        // Spotify
+        SocialMediaCard(
+          icon: FontAwesomeIcons.spotify,
+          iconColor: Color(0xFF1DB954),
+          platformName: 'Spotify',
+          accountName: 'Raj Prakash Paul',
+          buttonText: 'Follow',
+          onTap: () => _launchUrl(
+            context,
+            'https://open.spotify.com/artist/5pCZk4EhxyQ17HZS5Vom2e',
+            'Spotify',
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        // JioSaavn
+        SocialMediaCard(
+          icon: FontAwesomeIcons.headphones,
+          iconColor: Color(0xFF0ACF83),
+          platformName: 'Jio Saavn',
+          accountName: 'Raj Prakash Paul',
+          buttonText: 'Follow',
+          onTap: () => _launchUrl(
+            context,
+            'https://www.jiosaavn.com/artist/raj-prakash-paul-songs/rTGkStiikqQ_',
+            'JioSaavn',
+          ),
+        ),
+      ],
     );
   }
 }
