@@ -29,9 +29,13 @@ class _RegisterScreenState extends State<RegisterScreen>
   final nameCtrl = TextEditingController();
   final fromCtrl = TextEditingController();
   final yearCtrl = TextEditingController();
+  final emailCtrl = TextEditingController();
+  final baptisedYearCtrl = TextEditingController();
 
   String memberType = 'regular';
   String attendingWith = 'alone';
+  String gender = 'male';
+  bool baptised = false;
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   late Animation<double> _scaleAnimation;
@@ -58,6 +62,53 @@ class _RegisterScreenState extends State<RegisterScreen>
     );
 
     loadMetadata();
+  }
+
+  Future<void> _pickBaptisedYear() async {
+    final currentYear = DateTime.now().year;
+    final initialYear = baptisedYearCtrl.text.isNotEmpty
+        ? int.tryParse(baptisedYearCtrl.text) ?? currentYear
+        : currentYear;
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        int selectedYear = initialYear;
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: const Text('Select Baptised Year'),
+          content: SizedBox(
+            height: 300,
+            width: 300,
+            child: YearPicker(
+              firstDate: DateTime(1900),
+              lastDate: DateTime(currentYear),
+              initialDate: DateTime(initialYear),
+              selectedDate: DateTime(selectedYear),
+              onChanged: (DateTime dateTime) {
+                selectedYear = dateTime.year;
+                HapticFeedback.selectionClick();
+                setState(() {
+                  baptisedYearCtrl.text = selectedYear.toString();
+                });
+                Navigator.pop(context);
+              },
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                HapticFeedback.lightImpact();
+                Navigator.pop(context);
+              },
+              child: const Text('Cancel'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   void loadMetadata() async {
@@ -103,11 +154,15 @@ class _RegisterScreenState extends State<RegisterScreen>
         );
       } else {
         setState(() {
-          nameCtrl.text = profile['full_name'];
-          fromCtrl.text = profile['coming_from'];
-          yearCtrl.text = profile['since_year'].toString();
-          memberType = profile['member_type'];
-          attendingWith = profile['attending_with'];
+          nameCtrl.text = profile['full_name'] ?? '';
+          fromCtrl.text = profile['coming_from'] ?? '';
+          yearCtrl.text = profile['since_year']?.toString() ?? '';
+          memberType = profile['member_type'] ?? 'regular';
+          attendingWith = profile['attending_with'] ?? 'alone';
+          emailCtrl.text = profile['email'] ?? '';
+          gender = profile['gender'] ?? 'male';
+          baptised = profile['baptised'] ?? false;
+          baptisedYearCtrl.text = profile['baptised_year'] ?? '';
         });
       }
     } catch (e) {
@@ -181,6 +236,22 @@ class _RegisterScreenState extends State<RegisterScreen>
       return;
     }
 
+    // Email validation
+    if (emailCtrl.text.isEmpty) {
+      HapticFeedback.lightImpact();
+      _showErrorDialog('Please enter your email address');
+      return;
+    }
+
+    final emailRegex = RegExp(
+      r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$',
+    );
+    if (!emailRegex.hasMatch(emailCtrl.text)) {
+      HapticFeedback.lightImpact();
+      _showErrorDialog('Please enter a valid email address');
+      return;
+    }
+
     HapticFeedback.mediumImpact();
     setState(() => submitting = true);
     final authToken = await Storage.getToken();
@@ -191,6 +262,10 @@ class _RegisterScreenState extends State<RegisterScreen>
         int.parse(yearCtrl.text),
         memberType,
         attendingWith,
+        emailCtrl.text,
+        gender,
+        baptised,
+        baptisedYearCtrl.text.isNotEmpty ? baptisedYearCtrl.text : null,
       );
 
       await ApiService.submitAttendance(
@@ -291,6 +366,8 @@ class _RegisterScreenState extends State<RegisterScreen>
     nameCtrl.dispose();
     fromCtrl.dispose();
     yearCtrl.dispose();
+    emailCtrl.dispose();
+    baptisedYearCtrl.dispose();
     super.dispose();
   }
 
@@ -628,6 +705,203 @@ class _RegisterScreenState extends State<RegisterScreen>
                                   inputFormatters: [
                                     FilteringTextInputFormatter.digitsOnly,
                                   ],
+                                ),
+                              ),
+
+                              const SizedBox(height: 16),
+
+                              // Email Field
+                              Text(
+                                'Email Address',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                  color: Colors.grey[700],
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Container(
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: Colors.black54,
+                                    width: 1.5,
+                                  ),
+                                ),
+                                child: TextField(
+                                  controller: emailCtrl,
+                                  keyboardType: TextInputType.emailAddress,
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    color: Colors.black87,
+                                  ),
+                                  decoration: const InputDecoration(
+                                    border: InputBorder.none,
+                                    contentPadding: EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                      vertical: 14,
+                                    ),
+                                    hintText: 'Enter your email address',
+                                    hintStyle: TextStyle(color: Colors.grey),
+                                  ),
+                                ),
+                              ),
+
+                              const SizedBox(height: 16),
+
+                              // Gender Dropdown
+                              Text(
+                                'Gender',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                  color: Colors.grey[700],
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Container(
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: Colors.black54,
+                                    width: 1.5,
+                                  ),
+                                ),
+                                child: DropdownButtonHideUnderline(
+                                  child: DropdownButtonFormField<String>(
+                                    value: gender,
+                                    items: const [
+                                      DropdownMenuItem(
+                                        value: 'male',
+                                        child: Text('Male'),
+                                      ),
+                                      DropdownMenuItem(
+                                        value: 'female',
+                                        child: Text('Female'),
+                                      ),
+                                      DropdownMenuItem(
+                                        value: 'others',
+                                        child: Text('Others'),
+                                      ),
+                                    ],
+                                    onChanged: (v) {
+                                      HapticFeedback.selectionClick();
+                                      setState(() => gender = v!);
+                                    },
+                                    decoration: const InputDecoration(
+                                      border: InputBorder.none,
+                                      contentPadding: EdgeInsets.symmetric(
+                                        horizontal: 16,
+                                        vertical: 8,
+                                      ),
+                                    ),
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      color: Colors.black87,
+                                    ),
+                                  ),
+                                ),
+                              ),
+
+                              const SizedBox(height: 16),
+
+                              // Baptised Dropdown
+                              Text(
+                                'Baptised',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                  color: Colors.grey[700],
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Container(
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: Colors.black54,
+                                    width: 1.5,
+                                  ),
+                                ),
+                                child: DropdownButtonHideUnderline(
+                                  child: DropdownButtonFormField<bool>(
+                                    value: baptised,
+                                    items: const [
+                                      DropdownMenuItem(
+                                        value: true,
+                                        child: Text('Yes'),
+                                      ),
+                                      DropdownMenuItem(
+                                        value: false,
+                                        child: Text('No'),
+                                      ),
+                                    ],
+                                    onChanged: (v) {
+                                      HapticFeedback.selectionClick();
+                                      setState(() => baptised = v!);
+                                    },
+                                    decoration: const InputDecoration(
+                                      border: InputBorder.none,
+                                      contentPadding: EdgeInsets.symmetric(
+                                        horizontal: 16,
+                                        vertical: 8,
+                                      ),
+                                    ),
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      color: Colors.black87,
+                                    ),
+                                  ),
+                                ),
+                              ),
+
+                              const SizedBox(height: 16),
+
+                              // Baptised Year Field (Optional)
+                              Text(
+                                'Baptised Year (Optional)',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                  color: Colors.grey[700],
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              GestureDetector(
+                                onTap: _pickBaptisedYear,
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: Colors.black54,
+                                      width: 1.5,
+                                    ),
+                                  ),
+                                  child: AbsorbPointer(
+                                    child: TextField(
+                                      controller: baptisedYearCtrl,
+                                      enabled: false,
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        color: Colors.black87,
+                                      ),
+                                      decoration: const InputDecoration(
+                                        border: InputBorder.none,
+                                        contentPadding: EdgeInsets.symmetric(
+                                          horizontal: 16,
+                                          vertical: 14,
+                                        ),
+                                        hintText: 'Select baptised year',
+                                        hintStyle: TextStyle(
+                                          color: Colors.grey,
+                                        ),
+                                        suffixIcon: Icon(
+                                          Icons.arrow_drop_down,
+                                          color: Colors.black54,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
                                 ),
                               ),
 

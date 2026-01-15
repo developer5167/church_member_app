@@ -79,7 +79,11 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(_getTitleForIndex(_currentIndex)),
+        backgroundColor: Colors.grey.shade50,
+        elevation: 0,
+
+        surfaceTintColor: Colors.transparent,
+        title: Text(_getTitleForIndex(_currentIndex),style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.grey[900]),),
         automaticallyImplyLeading: false,
         centerTitle: true,
       ),

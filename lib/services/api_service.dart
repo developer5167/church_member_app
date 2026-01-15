@@ -4,8 +4,8 @@ import 'package:church_member_app/utils/storage.dart';
 import 'package:http/http.dart' as http;
 
 class ApiService {
-  static const String baseUrl = 'http://13.201.163.103:4000/api';//live
-  // static const String baseUrl = 'http://192.168.31.196:4000/api'; //home
+  static const String baseUrl = 'http://13.201.163.103:4000/api'; //live
+  // static const String baseUrl = 'http://10.127.161.23:4000/api'; //home
   // static const String baseUrl = 'http://192.168.15.187:4000/api'; //office
 
   static Future<void> saveProfile(
@@ -14,25 +14,40 @@ class ApiService {
     int sinceYear,
     String memberType, // guest | regular
     String attendingWith, // alone | family | friends
+    String email,
+    String gender, // male | female | others
+    bool baptised,
+    String? baptisedYear, // optional
   ) async {
     final authToken = await Storage.getToken();
     const apiUrl = '$baseUrl/member/profile';
     print('API URL:$apiUrl');
+
+    final Map<String, dynamic> body = {
+      'full_name': fullName,
+      'coming_from': comingFrom,
+      'since_year': sinceYear,
+      'member_type': memberType,
+      'attending_with': attendingWith,
+      'email': email,
+      'gender': gender,
+      'baptised': baptised,
+    };
+
+    // Add baptised_year only if it's not null
+    if (baptisedYear != null && baptisedYear.isNotEmpty) {
+      body['baptised_year'] = baptisedYear;
+    }
+
     final response = await http.post(
       Uri.parse('$baseUrl/member/profile'),
       headers: {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer $authToken',
       },
-      body: jsonEncode({
-        'full_name': fullName,
-        'coming_from': comingFrom,
-        'since_year': sinceYear,
-        'member_type': memberType,
-        'attending_with': attendingWith,
-      }),
+      body: jsonEncode(body),
     );
-    print('${response.body}');
+    print(response.body);
 
     if (response.statusCode != 200) {
       throw Exception('Failed to save profile');
@@ -55,7 +70,11 @@ class ApiService {
     final response = await http.post(
       Uri.parse('$baseUrl/member/verify-otp'),
       headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'phone': phone, 'otp': otp,"churchId":FlavorConfig.instance.values.churchId}),
+      body: jsonEncode({
+        'phone': phone,
+        'otp': otp,
+        "churchId": FlavorConfig.instance.values.churchId,
+      }),
     );
 
     if (response.statusCode != 200) {
