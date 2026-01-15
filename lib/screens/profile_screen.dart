@@ -298,7 +298,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                 onOk();
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF8B0000),
+                backgroundColor: FlavorConfig.instance.values.primaryColor,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               ),

@@ -78,15 +78,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.grey.shade50,
-        elevation: 0,
 
-        surfaceTintColor: Colors.transparent,
-        title: Text(_getTitleForIndex(_currentIndex),style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.grey[900]),),
-        automaticallyImplyLeading: false,
-        centerTitle: true,
-      ),
       body: WillPopScope(
         onWillPop: () async {
           final shouldClose =
@@ -299,6 +291,10 @@ class _HomeScreenState extends State<HomeScreen> {
   // ---------- Bottom Bar ----------
   Widget _buildBottomBar() {
     return BottomAppBar(
+      color: Colors.white  ,
+      elevation: 0.5,
+
+
       shape: const CircularNotchedRectangle(),
       notchMargin: 8,
       child: SizedBox(
