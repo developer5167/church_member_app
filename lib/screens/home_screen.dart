@@ -14,20 +14,38 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateMixin {
   int _currentIndex = 1;
   bool _loadingSow = false;
   String? _sowPaymentLink;
 
+  late AnimationController _animationController;
+
+  @override
+  void initState() {
+    super.initState();
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
+  }
+
   // ---------- Navigation ----------
   void _switchTo(int index) {
+    if (_currentIndex == index) return;
     HapticFeedback.selectionClick();
     setState(() => _currentIndex = index);
   }
 
   // ---------- Sow Logic ----------
   Future<void> _fetchSowLink() async {
-    HapticFeedback.selectionClick();
+    HapticFeedback.mediumImpact();
     setState(() => _loadingSow = true);
 
     final token = await Storage.getToken();
@@ -57,320 +75,291 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _showMessage(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
+      SnackBar(
+        content: Text(message),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
     );
-  }
-
-  String _getTitleForIndex(int index) {
-    switch (index) {
-      case 0:
-        return 'Sow';
-      case 1:
-        return 'Scan QR';
-      case 2:
-        return 'Profile';
-      default:
-        return 'Home';
-    }
   }
 
   // ---------- UI ----------
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    final primaryColor = FlavorConfig.instance.values.primaryColor;
 
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8F9FA),
       body: WillPopScope(
         onWillPop: () async {
-          final shouldClose =
-              await showDialog<bool>(
-                context: context,
-                builder: (_) => AlertDialog(
-                  title: const Text('Exit App'),
-                  content: const Text('Are you sure you want to exit?'),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context, false),
-                      child: const Text('Cancel'),
-                    ),
-                    TextButton(
-                      onPressed: () => Navigator.pop(context, true),
-                      style: TextButton.styleFrom(foregroundColor: Colors.red),
-                      child: const Text('Exit'),
-                    ),
-                  ],
-                ),
-              ) ??
-              false;
-
+          final shouldClose = await _showExitDialog();
           if (shouldClose) SystemNavigator.pop();
           return false;
         },
         child: IndexedStack(
           index: _currentIndex,
           children: [
-            _buildSowScreen(),
+            _buildSowScreen(primaryColor),
             const QrScanScreen(embedded: true),
             const ProfileScreen(embedded: true),
           ],
         ),
       ),
-      bottomNavigationBar: _buildBottomBar(),
+      bottomNavigationBar: _buildBottomBar(primaryColor),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _switchTo(1),
-        backgroundColor: FlavorConfig.instance.values.primaryColor,
-        elevation: 4,
-        shape: const CircleBorder(),
-        child: const Icon(Icons.qr_code_scanner, color: Colors.white, size: 28),
-      ),
-    );
-  }
-
-  // ---------- Sow Screen ----------
-  Widget _buildSowScreen() {
-    if (_loadingSow) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    if (_sowPaymentLink != null) {
-      return RefreshIndicator(
-        onRefresh: _refreshSowLink,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Center(
-              child: const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 32.0),
-                child: Text(
-                  'Scan this QR to make a payment',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w500,
-                    color: Colors.black87,
-                  ),
-                ),
-              ),
-            ),
-            Center(
-              child: QrImageView(
-                data: _sowPaymentLink!,
-                size: MediaQuery.of(context).size.width * 0.9,
-                backgroundColor: Colors.white,
-                eyeStyle: const QrEyeStyle(
-                  eyeShape: QrEyeShape.square,
-                  color: Colors.black87,
-                ),
-                dataModuleStyle: const QrDataModuleStyle(
-                  dataModuleShape: QrDataModuleShape.square,
-                  color: Colors.black87,
-                ),
-              ),
-            ),
-            Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24.0),
-                child: ElevatedButton.icon(
-                  onPressed: _fetchSowLink,
-                  icon: const Icon(Icons.refresh),
-                  label: const Text('Generate New QR'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.grey[100],
-                    foregroundColor: Colors.black87,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 32,
-                      vertical: 16,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                ),
-              ),
+      floatingActionButton: Container(
+        height: 70,
+        width: 70,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: primaryColor.withOpacity(0.3),
+              blurRadius: 15,
+              offset: const Offset(0, 4),
             ),
           ],
         ),
-      );
-    }
-
-    // Default/empty state
-    return RefreshIndicator(
-      onRefresh: _refreshSowLink,
-      child: SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        child: SizedBox(
-          height: MediaQuery.of(context).size.height,
-          child: Center(
-            child: Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Image.asset(
-                    FlavorConfig.instance.values.logoAsset,
-                    width: 150,
-                    height: 150,
-                    fit: BoxFit.contain,
-                  ),
-                  const SizedBox(height: 32),
-                  Text(
-                    'Sow',
-                    style: TextStyle(
-                      fontSize: 32,
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).primaryColor,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'Generate a QR code to receive payments',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Colors.grey,
-                      height: 1.5,
-                    ),
-                  ),
-                  const SizedBox(height: 32),
-                  ElevatedButton.icon(
-                    onPressed: _fetchSowLink,
-                    icon: const Icon(Icons.qr_code, size: 24),
-                    label: const Text(
-                      'Generate Payment QR',
-                      style: TextStyle(fontSize: 16),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor:
-                          FlavorConfig.instance.values.primaryColor,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 36,
-                        vertical: 18,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      elevation: 2,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  TextButton(
-                    onPressed: () {
-                      // Optional: Add info dialog about the payment process
-                      showDialog(
-                        context: context,
-                        builder: (context) => AlertDialog(
-                          title: const Text('About Sow Payments'),
-                          content: const Text(
-                            'This generates a unique QR code for receiving payments. '
-                            'Each QR is valid for a single transaction and expires after 24 hours.',
-                          ),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.pop(context),
-                              child: const Text('OK'),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                    child: const Text(
-                      'How does this work?',
-                      style: TextStyle(color: Colors.blue),
-                    ),
-                  ),
-                ],
-              ),
-            ),
+        child: Padding(
+          padding: const EdgeInsets.all(6.0),
+          child: FloatingActionButton(
+            onPressed: () => _switchTo(1),
+            backgroundColor: primaryColor,
+            elevation: 0,
+            highlightElevation: 0,
+            shape: const CircleBorder(),
+            child: const Icon(Icons.qr_code_scanner_rounded, color: Colors.white, size: 30),
           ),
         ),
       ),
     );
   }
 
+  Future<bool> _showExitDialog() async {
+    return await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            title: const Text('Exit App', style: TextStyle(fontWeight: FontWeight.bold)),
+            content: const Text('Are you sure you want to exit the application?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancel', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.w600)),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context, true),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red[400],
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  elevation: 0,
+                ),
+                child: const Text('Exit'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+  }
+
+  // ---------- Sow Screen ----------
+  Widget _buildSowScreen(Color primaryColor) {
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0xFFFFFFFF), Color(0xFFF8F9FA)],
+        ),
+      ),
+      child: SafeArea(
+        child: _loadingSow
+            ? Center(child: CircularProgressIndicator(color: primaryColor))
+            : RefreshIndicator(
+                onRefresh: _refreshSowLink,
+                color: primaryColor,
+                child: SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                    child: Column(
+                      children: [
+                        const SizedBox(height: 40),
+                        _sowPaymentLink != null 
+                          ? _buildPaymentQrView(primaryColor)
+                          : _buildSowEmptyState(primaryColor),
+                        const SizedBox(height: 40),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+      ),
+    );
+  }
+
+  Widget _buildPaymentQrView(Color primaryColor) {
+    return Column(
+      children: [
+        const Text(
+          'Generous Giving',
+          style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, fontFamily: 'PlayfairDisplay'),
+        ),
+        const SizedBox(height: 8),
+        const Text(
+          'Scan this QR code to make your offering',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: Colors.black54, fontSize: 16),
+        ),
+        const SizedBox(height: 40),
+        Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(30),
+            boxShadow: [
+              BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 20, spreadRadius: 5),
+            ],
+          ),
+          child: QrImageView(
+            data: _sowPaymentLink!,
+            size: MediaQuery.of(context).size.width * 0.7,
+            padding: EdgeInsets.zero,
+            eyeStyle: QrEyeStyle(eyeShape: QrEyeShape.square, color: primaryColor),
+            dataModuleStyle: QrDataModuleStyle(dataModuleShape: QrDataModuleShape.square, color: primaryColor),
+          ),
+        ),
+        const SizedBox(height: 40),
+        SizedBox(
+          width: double.infinity,
+          height: 56,
+          child: ElevatedButton.icon(
+            onPressed: _fetchSowLink,
+            icon: const Icon(Icons.refresh_rounded),
+            label: const Text('Refresh Payment QR', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.white,
+              foregroundColor: primaryColor,
+              elevation: 0,
+              side: BorderSide(color: primaryColor.withOpacity(0.2)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSowEmptyState(Color primaryColor) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        const SizedBox(height: 60),
+        Container(
+          padding: const EdgeInsets.all(30),
+          decoration: BoxDecoration(
+            color: primaryColor.withOpacity(0.05),
+            shape: BoxShape.circle,
+          ),
+          child: Image.asset(
+            FlavorConfig.instance.values.logoAsset,
+            width: 140,
+            height: 140,
+            fit: BoxFit.contain,
+          ),
+        ),
+        const SizedBox(height: 40),
+        const Text(
+          'Faithful Steward',
+          style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, fontFamily: 'PlayfairDisplay'),
+        ),
+        const SizedBox(height: 16),
+        const Text(
+          '“Each of you should give what you have decided in your heart to give, not reluctantly or under compulsion, for God loves a cheerful giver.”',
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 15, color: Colors.black54, fontStyle: FontStyle.italic, height: 1.5),
+        ),
+        const SizedBox(height: 48),
+        SizedBox(
+          width: double.infinity,
+          height: 60,
+          child: ElevatedButton.icon(
+            onPressed: _fetchSowLink,
+            icon: const Icon(Icons.volunteer_activism_rounded),
+            label: const Text('Proceed to Sow', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: primaryColor,
+              foregroundColor: Colors.white,
+              elevation: 4,
+              shadowColor: primaryColor.withOpacity(0.4),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   // ---------- Bottom Bar ----------
-  Widget _buildBottomBar() {
-    return BottomAppBar(
-      color: Colors.white  ,
-      elevation: 0.5,
-
-
-      shape: const CircularNotchedRectangle(),
-      notchMargin: 8,
-      child: SizedBox(
-        height: kBottomNavigationBarHeight + 12,
+  Widget _buildBottomBar(Color primaryColor) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, -5)),
+        ],
+      ),
+      child: BottomAppBar(
+        height: 80,
+        color: Colors.white,
+        elevation: 0,
+        notchMargin: 5,
+        shape: const CircularNotchedRectangle(),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
-            Expanded(
-              child: InkWell(
-                onTap: () => _switchTo(0),
-                customBorder: const CircleBorder(),
-                splashColor: FlavorConfig.instance.values.primaryColor
-                    .withOpacity(0.2),
-                highlightColor: FlavorConfig.instance.values.primaryColor
-                    .withOpacity(0.1),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.volunteer_activism,
-                      color: _currentIndex == 0
-                          ? FlavorConfig.instance.values.primaryColor
-                          : Colors.grey[600],
-                      size: 28,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Sow',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: _currentIndex == 0
-                            ? FontWeight.w600
-                            : FontWeight.normal,
-                        color: _currentIndex == 0
-                            ? FlavorConfig.instance.values.primaryColor
-                            : Colors.grey[600],
-                      ),
-                    ),
-                  ],
-                ),
+            _buildNavItem(0, Icons.volunteer_activism_rounded, 'Sow', primaryColor),
+            const SizedBox(width: 48), // Space for FAB
+            _buildNavItem(2, Icons.person_rounded, 'Profile', primaryColor),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNavItem(int index, IconData icon, String label, Color primaryColor) {
+    final isSelected = _currentIndex == index;
+    return Expanded(
+      child: InkWell(
+        onTap: () => _switchTo(index),
+        splashColor: Colors.transparent,
+        highlightColor: Colors.transparent,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              decoration: BoxDecoration(
+                color: isSelected ? primaryColor.withOpacity(0.1) : Colors.transparent,
+                borderRadius: BorderRadius.circular(15),
+              ),
+              child: Icon(
+                icon,
+                color: isSelected ? primaryColor : Colors.grey[400],
+                size: 24,
               ),
             ),
-            const SizedBox(width: 80), // Space for FAB
-            Expanded(
-              child: InkWell(
-                onTap: () => _switchTo(2),
-                customBorder: const CircleBorder(),
-                splashColor: FlavorConfig.instance.values.primaryColor
-                    .withOpacity(0.2),
-                highlightColor: FlavorConfig.instance.values.primaryColor
-                    .withOpacity(0.1),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.person_outline,
-                      color: _currentIndex == 2
-                          ? FlavorConfig.instance.values.primaryColor
-                          : Colors.grey[600],
-                      size: 28,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Profile',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: _currentIndex == 2
-                            ? FontWeight.w600
-                            : FontWeight.normal,
-                        color: _currentIndex == 2
-                            ? FlavorConfig.instance.values.primaryColor
-                            : Colors.grey[600],
-                      ),
-                    ),
-                  ],
-                ),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                color: isSelected ? primaryColor : Colors.grey[400],
               ),
             ),
           ],

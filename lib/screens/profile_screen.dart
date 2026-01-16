@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:church_member_app/flavor/flavor_config.dart';
-import 'package:church_member_app/screens/socialMediaCard.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -31,6 +30,11 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
   bool loading = false;
   bool saving = false;
   bool isEditing = false;
+  
+  bool hasRequest = false;
+  String? baptismStatus; // pending | completed
+  bool requestingBaptism = false;
+
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   late Animation<double> _scaleAnimation;
@@ -50,7 +54,34 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
 
     _scaleAnimation = Tween<double>(begin: 0.95, end: 1).animate(CurvedAnimation(parent: _animationController, curve: Curves.easeOutBack));
 
-    _loadProfile();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    setState(() => loading = true);
+    await Future.wait([
+      _loadProfile(),
+      _fetchBaptismStatus(),
+    ]);
+    if (mounted) {
+      setState(() => loading = false);
+      _animationController.forward();
+    }
+  }
+
+  Future<void> _fetchBaptismStatus() async {
+    try {
+      final token = await Storage.getToken();
+      if (token != null) {
+        final status = await ApiService.getBaptismRequestStatus(token);
+        setState(() {
+          hasRequest = status['hasRequest'];
+          baptismStatus = status['status'];
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching baptism status: $e');
+    }
   }
 
   Future<void> _launchUrl(BuildContext context, String url, String platformName) async {
@@ -147,8 +178,6 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
   }
 
   Future<void> _loadProfile() async {
-    setState(() => loading = true);
-
     try {
       final token = await Storage.getToken();
       if (token != null) {
@@ -169,12 +198,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
         }
       }
     } catch (e) {
-      print('Error loading profile: $e');
-    } finally {
-      if (mounted) {
-        setState(() => loading = false);
-        _animationController.forward();
-      }
+      debugPrint('Error loading profile: $e');
     }
   }
 
@@ -205,7 +229,6 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
       return;
     }
 
-    // Email validation
     if (emailCtrl.text.isEmpty) {
       HapticFeedback.lightImpact();
       _showErrorDialog('Please enter your email address');
@@ -223,17 +246,26 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
     setState(() => saving = true);
 
     try {
-      await ApiService.saveProfile(nameCtrl.text, fromCtrl.text, year, memberType, attendingWith, emailCtrl.text, gender, baptised, baptisedYearCtrl.text.isNotEmpty ? baptisedYearCtrl.text : null);
+      await ApiService.saveProfile(
+        nameCtrl.text, 
+        fromCtrl.text, 
+        year, 
+        memberType, 
+        attendingWith, 
+        emailCtrl.text, 
+        gender, 
+        baptised, 
+        baptisedYearCtrl.text.isNotEmpty ? baptisedYearCtrl.text : null
+      );
 
       HapticFeedback.selectionClick();
-
-      // Show success and pop
       _showSuccessDialog('Profile saved successfully!', () {
-        Navigator.pop(context);
+        setState(() => isEditing = false);
+        if (!widget.embedded) Navigator.pop(context);
       });
     } catch (e) {
       HapticFeedback.heavyImpact();
-      final errorMessage = e.toString().startsWith("Exception: ") ? e.toString().substring(11) : e.toString();
+      final errorMessage = e.toString().replaceFirst("Exception: ", "");
       _showErrorDialog('Failed to save profile: $errorMessage');
     } finally {
       if (mounted) {
@@ -242,37 +274,46 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
     }
   }
 
+  Future<void> _handleBaptismRequest() async {
+    HapticFeedback.mediumImpact();
+    setState(() => requestingBaptism = true);
+    
+    try {
+      final token = await Storage.getToken();
+      await ApiService.requestBaptism(token!);
+      
+      await _fetchBaptismStatus();
+      HapticFeedback.selectionClick();
+      
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Baptism request submitted successfully'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      HapticFeedback.heavyImpact();
+      final errorMessage = e.toString().replaceFirst("Exception: ", "");
+      _showErrorDialog(errorMessage);
+    } finally {
+      if (mounted) setState(() => requestingBaptism = false);
+    }
+  }
+
   void _showErrorDialog(String message) {
     showDialog(
       context: context,
-      builder: (context) => ScaleTransition(
-        scale: CurvedAnimation(parent: ModalRoute.of(context)!.animation!, curve: Curves.easeOutBack),
-        child: AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          backgroundColor: Colors.white,
-          title: const Text(
-            'Validation Error',
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Error', style: TextStyle(fontWeight: FontWeight.bold)),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
           ),
-          content: Text(message),
-          actions: [
-            ElevatedButton(
-              onPressed: () {
-                HapticFeedback.lightImpact();
-                Navigator.pop(context);
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: FlavorConfig.instance.values.primaryColor,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              ),
-              child: const Text(
-                'OK',
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
-              ),
-            ),
-          ],
-        ),
+        ],
       ),
     );
   }
@@ -281,34 +322,23 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => ScaleTransition(
-        scale: CurvedAnimation(parent: ModalRoute.of(context)!.animation!, curve: Curves.easeOutBack),
-        child: AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          backgroundColor: Colors.white,
-          title: const Text(
-            'Success!',
-            style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold),
-          ),
-          content: Text(message),
-          actions: [
-            ElevatedButton(
-              onPressed: () {
-                HapticFeedback.selectionClick();
-                onOk();
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: FlavorConfig.instance.values.primaryColor,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              ),
-              child: const Text(
-                'Continue',
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
-              ),
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Success!', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
+        content: Text(message),
+        actions: [
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              onOk();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: FlavorConfig.instance.values.primaryColor,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
-          ],
-        ),
+            child: const Text('Continue', style: TextStyle(color: Colors.white)),
+          ),
+        ],
       ),
     );
   }
@@ -326,661 +356,472 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
 
   @override
   Widget build(BuildContext context) {
-    return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle.light.copyWith(statusBarColor: Colors.transparent, statusBarIconBrightness: Brightness.dark),
-      child: Scaffold(
-        body: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xFFF8F8F8), Color(0xFFE8E8E8), Color(0xFFF8F8F8)]),
-          ),
-          child: SafeArea(
-            child: SingleChildScrollView(
-              child: Container(
-                padding: const EdgeInsets.all(10),
+    final primaryColor = FlavorConfig.instance.values.primaryColor;
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8F9FA),
+      appBar: AppBar(
+        title: const Text('My Profile', style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold)),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        centerTitle: true,
+        leading: widget.embedded ? null : IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new, color: Colors.black87),
+          onPressed: () => Navigator.pop(context),
+        ),
+        actions: [
+          if (!loading)
+            IconButton(
+              onPressed: () {
+                HapticFeedback.selectionClick();
+                setState(() => isEditing = !isEditing);
+              },
+              icon: Icon(isEditing ? Icons.close : Icons.edit_note, color: primaryColor, size: 28),
+            ),
+        ],
+      ),
+      body: loading
+          ? Center(child: CircularProgressIndicator(color: primaryColor))
+          : RefreshIndicator(
+              onRefresh: _loadData,
+              color: primaryColor,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                 child: ScaleTransition(
                   scale: _scaleAnimation,
                   child: FadeTransition(
                     opacity: _fadeAnimation,
                     child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Header with edit action
-                        Row(
-                          children: [
-                            if (!widget.embedded)
-                              GestureDetector(
-                                onTap: () {
-                                  HapticFeedback.lightImpact();
-                                  Navigator.pop(context);
-                                },
-                                child: Container(
-                                  padding: const EdgeInsets.all(8),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(12),
-                                    boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, spreadRadius: 1, offset: const Offset(0, 2))],
-                                  ),
-                                  child: const Icon(Icons.arrow_back_rounded, color: Colors.black87, size: 24),
-                                ),
-                              )
-                            else
-                              const SizedBox(width: 40),
-                          ],
-                        ),
-
-
-                        // Profile Header
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Row(
-                              children: [
-                                Container(
-                                  width: 40,
-                                  height: 40,
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color: FlavorConfig.instance.values.primaryColor.withOpacity(0.1),
-                                    border: Border.all(color: Colors.grey, width: 1),
-                                  ),
-                                  child: Icon(Icons.person, size: 20, color: Colors.grey),
-                                ),
-                                const SizedBox(width: 10),
-                                Text(
-                                  nameCtrl.text.toUpperCase(),
-                                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.grey[900], fontFamily: 'PlayfairDisplay', letterSpacing: 1.2),
-                                ),
-                              ],
-                            ),
-                            IconButton(
-                              onPressed: () {
-                                HapticFeedback.selectionClick();
-                                setState(() => isEditing = true);
-                              },
-                              icon: Icon(Icons.edit, color: Colors.grey, size: 25),
-                            ),
-                          ],
-                        ),
-
-                        const SizedBox(height: 10),
-
-                        // Loading State
-                        if (loading)
-                          Column(
-                            children: [
-                              SizedBox(width: 30, height: 30, child: CircularProgressIndicator(strokeWidth: 4, color: FlavorConfig.instance.values.primaryColor)),
-                              SizedBox(height: 10),
-                              Text('Loading your profile...', style: TextStyle(fontSize: 16, color: Colors.grey)),
-                            ],
-                          ),
-
-                        if (!loading) ...[
-                          // Profile Form Card
-                          Container(
-                            width: double.infinity,
-                            padding: EdgeInsets.all(24),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(20),
-                              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 20, spreadRadius: 2, offset: const Offset(0, 4))],
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Personal Information',
-                                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.grey[800], fontFamily: 'PlayfairDisplay'),
-                                ),
-
-                                const SizedBox(height: 24),
-
-                                // Full Name Field
-                                Text(
-                                  'Full Name',
-                                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: Colors.grey[700]),
-                                ),
-                                const SizedBox(height: 8),
-                                Container(
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(color: Colors.black54, width: 1.5),
-                                  ),
-                                  child: TextField(
-                                    controller: nameCtrl,
-                                    enabled: isEditing,
-                                    style: const TextStyle(fontSize: 16, color: Colors.black87),
-                                    decoration: const InputDecoration(
-                                      border: InputBorder.none,
-                                      contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                                      hintText: 'Enter your full name',
-                                      hintStyle: TextStyle(color: Colors.grey),
-                                      prefixIcon: Icon(Icons.person_outline, color: Color(0xFF8B0000)),
-                                    ),
-                                  ),
-                                ),
-
-                                const SizedBox(height: 20),
-
-                                // Coming From Field
-                                Text(
-                                  'Coming From',
-                                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: Colors.grey[700]),
-                                ),
-                                const SizedBox(height: 8),
-                                Container(
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(color: Colors.black54, width: 1.5),
-                                  ),
-                                  child: TextField(
-                                    controller: fromCtrl,
-                                    enabled: isEditing,
-                                    style: const TextStyle(fontSize: 16, color: Colors.black87),
-                                    decoration: const InputDecoration(
-                                      border: InputBorder.none,
-                                      contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                                      hintText: 'City or area you are coming from',
-                                      hintStyle: TextStyle(color: Colors.grey),
-                                      prefixIcon: Icon(Icons.location_on_outlined, color: Color(0xFF8B0000)),
-                                    ),
-                                  ),
-                                ),
-
-                                const SizedBox(height: 20),
-
-                                // Since Which Year Field
-                                Text(
-                                  'Since Which Year',
-                                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: Colors.grey[700]),
-                                ),
-                                const SizedBox(height: 8),
-                                GestureDetector(
-                                  onTap: isEditing ? _pickComingFromYear : null,
-                                  child: Container(
-                                    decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(12),
-                                      border: Border.all(color: Colors.black54, width: 1.5),
-                                    ),
-                                    child: AbsorbPointer(
-                                      child: TextField(
-                                        controller: yearCtrl,
-                                        enabled: isEditing,
-                                        style: const TextStyle(fontSize: 16, color: Colors.black87),
-                                        decoration: InputDecoration(
-                                          border: InputBorder.none,
-                                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                                          hintText: 'Select year',
-                                          hintStyle: const TextStyle(color: Colors.grey),
-                                          prefixIcon: const Icon(Icons.calendar_today, color: Color(0xFF8B0000)),
-                                          suffixIcon: Icon(Icons.arrow_drop_down, color: isEditing ? Colors.black54 : Colors.grey[300]),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-
-                                const SizedBox(height: 8),
-                                Text('Year you started attending this church', style: TextStyle(fontSize: 12, color: Colors.grey[500])),
-
-                                const SizedBox(height: 24),
-
-                                // Email Field
-                                Text(
-                                  'Email Address',
-                                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: Colors.grey[700]),
-                                ),
-                                const SizedBox(height: 8),
-                                Container(
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(color: Colors.black54, width: 1.5),
-                                  ),
-                                  child: TextField(
-                                    controller: emailCtrl,
-                                    enabled: isEditing,
-                                    keyboardType: TextInputType.emailAddress,
-                                    style: const TextStyle(fontSize: 16, color: Colors.black87),
-                                    decoration: const InputDecoration(
-                                      border: InputBorder.none,
-                                      contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                                      hintText: 'Enter your email address',
-                                      hintStyle: TextStyle(color: Colors.grey),
-                                      prefixIcon: Icon(Icons.email_outlined, color: Color(0xFF8B0000)),
-                                    ),
-                                  ),
-                                ),
-
-                                const SizedBox(height: 24),
-
-                                // Gender Dropdown
-                                Text(
-                                  'Gender',
-                                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: Colors.grey[700]),
-                                ),
-                                const SizedBox(height: 8),
-                                Container(
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(color: Colors.black54, width: 1.5),
-                                  ),
-                                  child: DropdownButtonHideUnderline(
-                                    child: DropdownButtonFormField<String>(
-                                      value: gender,
-                                      items: const [
-                                        DropdownMenuItem(
-                                          value: 'male',
-                                          child: Row(
-                                            children: [
-                                              Icon(Icons.male, color: Colors.blue, size: 20),
-                                              SizedBox(width: 12),
-                                              Text('Male'),
-                                            ],
-                                          ),
-                                        ),
-                                        DropdownMenuItem(
-                                          value: 'female',
-                                          child: Row(
-                                            children: [
-                                              Icon(Icons.female, color: Colors.pink, size: 20),
-                                              SizedBox(width: 12),
-                                              Text('Female'),
-                                            ],
-                                          ),
-                                        ),
-                                        DropdownMenuItem(
-                                          value: 'others',
-                                          child: Row(
-                                            children: [
-                                              Icon(Icons.person, color: Colors.purple, size: 20),
-                                              SizedBox(width: 12),
-                                              Text('Others'),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                      onChanged: isEditing
-                                          ? (v) {
-                                              HapticFeedback.selectionClick();
-                                              setState(() => gender = v!);
-                                            }
-                                          : null,
-                                      decoration: const InputDecoration(border: InputBorder.none, contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 8)),
-                                      style: const TextStyle(fontSize: 16, color: Colors.black87),
-                                    ),
-                                  ),
-                                ),
-
-                                const SizedBox(height: 24),
-
-                                // Baptised Dropdown
-                                Text(
-                                  'Baptised',
-                                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: Colors.grey[700]),
-                                ),
-                                const SizedBox(height: 8),
-                                Container(
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(color: Colors.black54, width: 1.5),
-                                  ),
-                                  child: DropdownButtonHideUnderline(
-                                    child: DropdownButtonFormField<bool>(
-                                      value: baptised,
-                                      items: const [
-                                        DropdownMenuItem(
-                                          value: true,
-                                          child: Row(
-                                            children: [
-                                              Icon(Icons.check_circle, color: Colors.green, size: 20),
-                                              SizedBox(width: 12),
-                                              Text('Yes'),
-                                            ],
-                                          ),
-                                        ),
-                                        DropdownMenuItem(
-                                          value: false,
-                                          child: Row(
-                                            children: [
-                                              Icon(Icons.cancel, color: Colors.red, size: 20),
-                                              SizedBox(width: 12),
-                                              Text('No'),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                      onChanged: isEditing
-                                          ? (v) {
-                                              HapticFeedback.selectionClick();
-                                              setState(() => baptised = v!);
-                                            }
-                                          : null,
-                                      decoration: const InputDecoration(border: InputBorder.none, contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 8)),
-                                      style: const TextStyle(fontSize: 16, color: Colors.black87),
-                                    ),
-                                  ),
-                                ),
-
-                                const SizedBox(height: 24),
-
-                                // Baptised Year Field (Optional)
-                                Text(
-                                  'Baptised Year (Optional)',
-                                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: Colors.grey[700]),
-                                ),
-                                const SizedBox(height: 8),
-                                GestureDetector(
-                                  onTap: isEditing ? _pickBaptisedYear : null,
-                                  child: Container(
-                                    decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(12),
-                                      border: Border.all(color: Colors.black54, width: 1.5),
-                                    ),
-                                    child: AbsorbPointer(
-                                      child: TextField(
-                                        controller: baptisedYearCtrl,
-                                        enabled: false,
-                                        style: const TextStyle(fontSize: 16, color: Colors.black87),
-                                        decoration: InputDecoration(
-                                          border: InputBorder.none,
-                                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                                          hintText: 'Select baptised year',
-                                          hintStyle: const TextStyle(color: Colors.grey),
-                                          prefixIcon: const Icon(Icons.calendar_today, color: Color(0xFF8B0000)),
-                                          suffixIcon: Icon(Icons.arrow_drop_down, color: isEditing ? Colors.black54 : Colors.grey[300]),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-
-                                const SizedBox(height: 24),
-
-                                // Member Type Dropdown
-                                Text(
-                                  'Member Type',
-                                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: Colors.grey[700]),
-                                ),
-                                const SizedBox(height: 8),
-                                Container(
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(color: Colors.black54, width: 1.5),
-                                  ),
-                                  child: DropdownButtonHideUnderline(
-                                    child: DropdownButtonFormField<String>(
-                                      value: memberType,
-                                      items: const [
-                                        DropdownMenuItem(
-                                          value: 'guest',
-                                          child: Row(
-                                            children: [
-                                              Icon(Icons.person_outline, color: Colors.blue, size: 20),
-                                              SizedBox(width: 12),
-                                              Text('Guest'),
-                                            ],
-                                          ),
-                                        ),
-                                        DropdownMenuItem(
-                                          value: 'regular',
-                                          child: Row(
-                                            children: [
-                                              Icon(Icons.person, color: Color(0xFF8B0000), size: 20),
-                                              SizedBox(width: 12),
-                                              Text('Regular(Lords Church Member)'),
-                                            ],
-                                          ),
-                                        ),
-                                        DropdownMenuItem(
-                                          value: 'online viewer',
-                                          child: Row(
-                                            children: [
-                                              Icon(Icons.online_prediction, color: Color(0xFFFF0000), size: 20),
-                                              SizedBox(width: 12),
-                                              Text('Online Viewer'),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                      onChanged: (v) {
-                                        HapticFeedback.selectionClick();
-                                        setState(() => memberType = v!);
-                                      },
-                                      decoration: const InputDecoration(border: InputBorder.none, contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 8)),
-                                      style: const TextStyle(fontSize: 16, color: Colors.black87),
-                                    ),
-                                  ),
-                                ),
-
-                                const SizedBox(height: 20),
-
-                                // Attending With Dropdown
-                                Text(
-                                  'Attending With',
-                                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: Colors.grey[700]),
-                                ),
-                                const SizedBox(height: 8),
-                                Container(
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(color: Colors.black54, width: 1.5),
-                                  ),
-                                  child: DropdownButtonHideUnderline(
-                                    child: DropdownButtonFormField<String>(
-                                      value: attendingWith,
-                                      items: const [
-                                        DropdownMenuItem(
-                                          value: 'alone',
-                                          child: Row(
-                                            children: [
-                                              Icon(Icons.person_outline, color: Colors.grey, size: 20),
-                                              SizedBox(width: 12),
-                                              Text('Alone'),
-                                            ],
-                                          ),
-                                        ),
-                                        DropdownMenuItem(
-                                          value: 'family',
-                                          child: Row(
-                                            children: [
-                                              Icon(Icons.family_restroom, color: Colors.green, size: 20),
-                                              SizedBox(width: 12),
-                                              Text('With Family'),
-                                            ],
-                                          ),
-                                        ),
-                                        DropdownMenuItem(
-                                          value: 'friends',
-                                          child: Row(
-                                            children: [
-                                              Icon(Icons.group, color: Colors.orange, size: 20),
-                                              SizedBox(width: 12),
-                                              Text('With Friends'),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                      onChanged: (v) {
-                                        HapticFeedback.selectionClick();
-                                        setState(() => attendingWith = v!);
-                                      },
-                                      decoration: const InputDecoration(border: InputBorder.none, contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 8)),
-                                      style: const TextStyle(fontSize: 16, color: Colors.black87),
-                                    ),
-                                  ),
-                                ),
-
-                                const SizedBox(height: 32),
-
-                                // Save Profile Button (visible only when editing)
-                                if (isEditing)
-                                  SizedBox(
-                                    width: double.infinity,
-                                    height: 56,
-                                    child: ElevatedButton(
-                                      onPressed: saving ? null : saveProfile,
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: FlavorConfig.instance.values.primaryColor,
-                                        disabledBackgroundColor: Colors.grey[400],
-                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                                        elevation: 0,
-                                      ),
-                                      child: Stack(
-                                        alignment: Alignment.center,
-                                        children: [
-                                          AnimatedOpacity(
-                                            opacity: saving ? 0 : 1,
-                                            duration: const Duration(milliseconds: 200),
-                                            child: const Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                Icon(Icons.save, color: Colors.white, size: 22),
-                                                SizedBox(width: 12),
-                                                Text(
-                                                  'Update Profile',
-                                                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: Colors.white),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                          if (saving) SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 3, color: Colors.white.withOpacity(0.9))),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          ),
-
-                          const SizedBox(height: 32),
-
-                          // Information Card
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.all(20),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF8B0000).withOpacity(0.05),
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(color: const Color(0xFF8B0000).withOpacity(0.2)),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    const Icon(Icons.info_outline, color: Color(0xFF8B0000), size: 20),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      'Why we need this information?',
-                                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.grey[800]),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 12),
-                                Text('Your profile information helps us provide better personalized service, track attendance accurately, and understand our church community better.', style: TextStyle(fontSize: 14, color: Colors.grey[600], height: 1.5)),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 24),
-
-                          // Join our channels
-                          // SocialMedia(context),
-                          Text(
-                            'Follow us on our social media platforms',
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.grey[800]),
-                          ),
-                          const SizedBox(height: 12),
-                          SizedBox(
-                            height: 180,
-                            child: ListView(
-                              scrollDirection: Axis.horizontal,
-                              physics: const BouncingScrollPhysics(),
-                              children: [
-                                _buildSocialCard(icon: FontAwesomeIcons.facebook, iconColor: const Color(0xFF436BFF), platform: 'Facebook', account: 'Raj Prakash Paul', onTap: () => _launchUrl(context, 'https://www.facebook.com/rajprakashpaul', 'Facebook')),
-                                const SizedBox(width: 12),
-                                _buildSocialCard(icon: FontAwesomeIcons.whatsapp, iconColor: const Color(0xFF25D366), platform: 'WhatsApp', account: 'Raj Prakash Paul', onTap: () => _launchUrl(context, 'https://whatsapp.com/channel/0029ValI9TD9cDDT6ArJVJ30', 'WhatsApp')),
-                                const SizedBox(width: 12),
-                                _buildSocialCard(icon: FontAwesomeIcons.whatsapp, iconColor: const Color(0xFF25D366), platform: 'WhatsApp', account: 'Jessy Paul', onTap: () => _launchUrl(context, 'https://whatsapp.com/channel/0029Vb0YkfqDeON0u7PWXY1G', 'WhatsApp')),
-                                const SizedBox(width: 12),
-                                _buildSocialCard(icon: FontAwesomeIcons.instagram, iconColor: const Color(0xFFE4405F), platform: 'Instagram', account: 'Jessy Paul', onTap: () => _launchUrl(context, 'https://www.instagram.com/jessypauln', 'Instagram')),
-                                const SizedBox(width: 12),
-                                _buildSocialCard(icon: FontAwesomeIcons.instagram, iconColor: const Color(0xFFE4405F), platform: 'Instagram', account: 'Raj Prakash Paul', onTap: () => _launchUrl(context, 'https://www.instagram.com/rajprakashpaul', 'Instagram')),
-                                const SizedBox(width: 12),
-                                _buildSocialCard(icon: FontAwesomeIcons.spotify, iconColor: const Color(0xFFE4405F), platform: 'Instagram', account: 'The Lords Church', onTap: () => _launchUrl(context, 'https://www.instagram.com/thelordschurchindia', 'Instagram')),
-                                const SizedBox(width: 12),
-                                _buildSocialCard(icon: FontAwesomeIcons.spotify, iconColor: const Color(0xFF1DB954), platform: 'Spotify', account: 'Raj Prakash Paul', onTap: () => _launchUrl(context, 'https://open.spotify.com/artist/5pCZk4EhxyQ17HZS5Vom2e', 'Spotify')),
-                                const SizedBox(width: 12),
-                                _buildSocialCard(icon: FontAwesomeIcons.youtube, iconColor: const Color(0xFFE10303), platform: 'Youtube', account: 'Raj Prakash Paul', onTap: () => _launchUrl(context, 'https://www.youtube.com/channel/UCFyCGU7WW2BFPMO9eBKD8XQ', 'Youtube')),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 24),
-                          // Footer
-                          Center(
-                            child: Text('The Lords Church India © ${DateTime.now().year}', style: TextStyle(color: Colors.grey[500], fontSize: 12, letterSpacing: 0.5)),
-                          ),
+                        _buildProfileHeader(primaryColor),
+                        const SizedBox(height: 24),
+                        
+                        // Baptism Request Section
+                        if (!baptised) ...[
+                           if (!hasRequest)
+                             _buildBaptismRequestCard(primaryColor)
+                           else if (baptismStatus == 'pending')
+                             _buildPendingRequestInfo()
+                           else if (baptismStatus == 'completed')
+                             _buildCompletedRequestInfo(),
+                           const SizedBox(height: 16),
                         ],
+                        
+                        _buildSectionTitle('Personal Information'),
+                        const SizedBox(height: 16),
+                        _buildCard([
+                          _buildInputField(nameCtrl, 'Full Name', Icons.person_outline, isEditing),
+                          _buildInputField(emailCtrl, 'Email Address', Icons.email_outlined, isEditing, keyboardType: TextInputType.emailAddress),
+                          _buildGenderSelector(isEditing),
+                        ]),
+                        const SizedBox(height: 24),
+                        _buildSectionTitle('Church Connection'),
+                        const SizedBox(height: 16),
+                        _buildCard([
+                          _buildInputField(fromCtrl, 'Coming From', Icons.location_on_outlined, isEditing),
+                          _buildYearPickerField(yearCtrl, 'Since Which Year', Icons.calendar_month_outlined, isEditing, _pickComingFromYear),
+                          _buildDropdown('Member Type', memberType, _memberTypeItems(), (v) => setState(() => memberType = v!), isEditing),
+                          _buildDropdown('Attending With', attendingWith, _attendingWithItems(), (v) => setState(() => attendingWith = v!), isEditing),
+                        ]),
+                        const SizedBox(height: 24),
+                        _buildSectionTitle('Faith Journey'),
+                        const SizedBox(height: 16),
+                        _buildCard([
+                          _buildBaptisedSelector(isEditing),
+                          if (baptised) 
+                            _buildYearPickerField(baptisedYearCtrl, 'Baptised Year', Icons.waves_outlined, isEditing, _pickBaptisedYear),
+                        ]),
+                        const SizedBox(height: 32),
+                        if (isEditing)
+                          SizedBox(
+                            width: double.infinity,
+                            height: 58,
+                            child: ElevatedButton(
+                              onPressed: saving ? null : saveProfile,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: primaryColor,
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                elevation: 2,
+                              ),
+                              child: saving
+                                  ? const CircularProgressIndicator(color: Colors.white)
+                                  : const Text('Save Changes', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                            ),
+                          ),
+                        const SizedBox(height: 40),
+                        _buildSocialSection(),
+                        const SizedBox(height: 40),
+                        Center(
+                          child: Text(
+                            'The Lords Church India © ${DateTime.now().year}',
+                            style: TextStyle(color: Colors.grey[400], fontSize: 12),
+                          ),
+                        ),
+                        const SizedBox(height: 20),
                       ],
                     ),
                   ),
                 ),
               ),
             ),
-          ),
-        ),
-      ),
     );
   }
-}
 
-Widget _buildSocialCard({required IconData icon, required Color iconColor, required String platform, required String account, required VoidCallback onTap}) {
-  return GestureDetector(
-    onTap: onTap,
-    child: Container(
-      width: 140,
-      padding: const EdgeInsets.all(16),
+  Widget _buildProfileHeader(Color primaryColor) {
+    return Container(
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey[100]!, width: 1),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4))],
+        color: primaryColor.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(20),
       ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(color: iconColor.withOpacity(0.1), shape: BoxShape.circle),
-            child: Icon(icon, color: iconColor, size: 20),
+          CircleAvatar(
+            radius: 35,
+            backgroundColor: primaryColor.withOpacity(0.1),
+            child: Icon(Icons.person, size: 40, color: primaryColor),
           ),
-          const SizedBox(height: 12),
-          Text(
-            platform,
-            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.grey[700]),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            account,
-            style: TextStyle(fontSize: 12, color: Colors.grey[500]),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
-          const Spacer(),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(color: Colors.grey[50], borderRadius: BorderRadius.circular(8)),
-            child: Row(
+          const SizedBox(width: 20),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Follow',
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: iconColor),
+                  nameCtrl.text.isNotEmpty ? nameCtrl.text : 'Welcome',
+                  style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, fontFamily: 'PlayfairDisplay'),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(width: 4),
-                Icon(Icons.arrow_forward_rounded, size: 12, color: iconColor),
+                Text(
+                  memberType.toUpperCase(),
+                  style: TextStyle(color: primaryColor, fontWeight: FontWeight.w600, letterSpacing: 1.2, fontSize: 12),
+                ),
               ],
             ),
           ),
         ],
       ),
-    ),
-  );
+    );
+  }
+
+  Widget _buildBaptismRequestCard(Color primaryColor) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 24),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [primaryColor, primaryColor.withOpacity(0.8)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: primaryColor.withOpacity(0.3),
+            blurRadius: 12,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.waves_rounded, color: Colors.white, size: 28),
+              SizedBox(width: 12),
+              Text(
+                'Step of Faith',
+                style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          const Text(
+            'Are you ready to take the next step in your spiritual journey through water baptism?',
+            style: TextStyle(color: Colors.white, fontSize: 14, height: 1.4),
+          ),
+          const SizedBox(height: 20),
+          SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: ElevatedButton(
+              onPressed: requestingBaptism ? null : _handleBaptismRequest,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.white,
+                foregroundColor: primaryColor,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                elevation: 0,
+              ),
+              child: requestingBaptism
+                ? SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: primaryColor, strokeWidth: 3))
+                : const Text('Request Baptism', style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPendingRequestInfo() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 24),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.amber.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.amber.withOpacity(0.3)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.info_outline_rounded, color: Colors.amber, size: 24),
+          const SizedBox(width: 12),
+          const Expanded(
+            child: Text(
+              'Your baptism request is currently being processed. Our team will contact you soon.',
+              style: TextStyle(color: Colors.black87, fontSize: 13, height: 1.4),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCompletedRequestInfo() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 24),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.green.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.green.withOpacity(0.3)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.check_circle_outline_rounded, color: Colors.green, size: 24),
+          const SizedBox(width: 12),
+          const Expanded(
+            child: Text(
+              'Your baptism request has been completed. Praise the Lord!',
+              style: TextStyle(color: Colors.black87, fontSize: 13, height: 1.4),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSectionTitle(String title) {
+    return Text(
+      title,
+      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87),
+    );
+  }
+
+  Widget _buildCard(List<Widget> children) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4)),
+        ],
+      ),
+      child: Column(children: children.expand((w) => [w, const SizedBox(height: 16)]).toList()..removeLast()),
+    );
+  }
+
+  Widget _buildInputField(TextEditingController ctrl, String label, IconData icon, bool enabled, {TextInputType? keyboardType}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: const TextStyle(fontSize: 13, color: Colors.black54, fontWeight: FontWeight.w500)),
+        const SizedBox(height: 6),
+        TextField(
+          controller: ctrl,
+          enabled: enabled,
+          keyboardType: keyboardType,
+          style: const TextStyle(fontWeight: FontWeight.w600),
+          decoration: InputDecoration(
+            prefixIcon: Icon(icon, color: Colors.black45, size: 22),
+            filled: true,
+            fillColor: enabled ? Colors.grey[50] : Colors.grey[100],
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+            contentPadding: const EdgeInsets.symmetric(vertical: 14),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildYearPickerField(TextEditingController ctrl, String label, IconData icon, bool enabled, VoidCallback onTap) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: const TextStyle(fontSize: 13, color: Colors.black54, fontWeight: FontWeight.w500)),
+        const SizedBox(height: 6),
+        GestureDetector(
+          onTap: enabled ? onTap : null,
+          child: AbsorbPointer(
+            child: TextField(
+              controller: ctrl,
+              style: const TextStyle(fontWeight: FontWeight.w600),
+              decoration: InputDecoration(
+                prefixIcon: Icon(icon, color: Colors.black45, size: 22),
+                suffixIcon: const Icon(Icons.calendar_today, size: 18, color: Colors.black38),
+                filled: true,
+                fillColor: enabled ? Colors.grey[50] : Colors.grey[100],
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                contentPadding: const EdgeInsets.symmetric(vertical: 14),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDropdown(String label, String value, List<DropdownMenuItem<String>> items, ValueChanged<String?> onChanged, bool enabled) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: const TextStyle(fontSize: 13, color: Colors.black54, fontWeight: FontWeight.w500)),
+        const SizedBox(height: 6),
+        DropdownButtonFormField<String>(
+          value: value,
+          items: items,
+          onChanged: enabled ? onChanged : null,
+          style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.black87),
+          decoration: InputDecoration(
+            filled: true,
+            fillColor: enabled ? Colors.grey[50] : Colors.grey[100],
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildGenderSelector(bool enabled) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('Gender', style: TextStyle(fontSize: 13, color: Colors.black54, fontWeight: FontWeight.w500)),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            _genderOption('male', Icons.male, Colors.blue, enabled),
+            const SizedBox(width: 12),
+            _genderOption('female', Icons.female, Colors.pink, enabled),
+            const SizedBox(width: 12),
+            _genderOption('others', Icons.person, Colors.purple, enabled),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _genderOption(String val, IconData icon, Color color, bool enabled) {
+    bool isSelected = gender == val;
+    return Expanded(
+      child: GestureDetector(
+        onTap: enabled ? () => setState(() => gender = val) : null,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: isSelected ? color.withOpacity(0.1) : Colors.grey[50],
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: isSelected ? color : Colors.transparent, width: 1.5),
+          ),
+          child: Column(
+            children: [
+              Icon(icon, color: isSelected ? color : Colors.black38, size: 20),
+              const SizedBox(height: 4),
+              Text(val[0].toUpperCase() + val.substring(1), 
+                style: TextStyle(fontSize: 12, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal, color: isSelected ? color : Colors.black54)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBaptisedSelector(bool enabled) {
+    return Row(
+      children: [
+        const Expanded(child: Text('Have you been baptised?', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600))),
+        Switch.adaptive(
+          value: baptised,
+          onChanged: enabled ? (v) => setState(() => baptised = v) : null,
+          activeColor: FlavorConfig.instance.values.primaryColor,
+        ),
+      ],
+    );
+  }
+
+  List<DropdownMenuItem<String>> _memberTypeItems() => [
+    const DropdownMenuItem(value: 'guest', child: Text('Guest')),
+    const DropdownMenuItem(value: 'regular', child: Text('Regular Member')),
+    const DropdownMenuItem(value: 'online viewer', child: Text('Online Viewer')),
+  ];
+
+  List<DropdownMenuItem<String>> _attendingWithItems() => [
+    const DropdownMenuItem(value: 'alone', child: Text('Alone')),
+    const DropdownMenuItem(value: 'family', child: Text('With Family')),
+    const DropdownMenuItem(value: 'friends', child: Text('With Friends')),
+  ];
+
+  Widget _buildSocialSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('Connect With Us', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 16),
+        SizedBox(
+          height: 140,
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
+            children: [
+              _socialItem(FontAwesomeIcons.facebook, const Color(0xFF1877F2), 'Facebook', 'Raj Prakash Paul', 'https://www.facebook.com/rajprakashpaul'),
+              _socialItem(FontAwesomeIcons.youtube, const Color(0xFFFF0000), 'YouTube', 'Lords Church', 'https://www.youtube.com/@TheLordsChurchIndia'),
+              _socialItem(FontAwesomeIcons.instagram, const Color(0xFFE4405F), 'Instagram', 'Jessy Paul', 'https://www.instagram.com/jessypauln'),
+              _socialItem(FontAwesomeIcons.whatsapp, const Color(0xFF25D366), 'WhatsApp', 'Church Updates', 'https://whatsapp.com/channel/0029ValI9TD9cDDT6ArJVJ30'),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _socialItem(IconData icon, Color color, String platform, String name, String url) {
+    return GestureDetector(
+      onTap: () => _launchUrl(context, url, platform),
+      child: Container(
+        width: 140,
+        margin: const EdgeInsets.only(right: 12),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 8, offset: const Offset(0, 4))],
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: color, size: 30),
+            const SizedBox(height: 10),
+            Text(platform, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black87)),
+            Text(name, style: const TextStyle(fontSize: 10, color: Colors.black45), textAlign: TextAlign.center, maxLines: 1),
+          ],
+        ),
+      ),
+    );
+  }
 }

@@ -148,4 +148,36 @@ class ApiService {
     final data = jsonDecode(response.body);
     return data['paymentLink'];
   }
+
+  static Future<void> requestBaptism(String authToken) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/member/baptism-request'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $authToken',
+      },
+    );
+
+    if (response.statusCode == 400) {
+      final data = jsonDecode(response.body);
+      throw Exception(data['message'] ?? 'You already have a pending baptism request');
+    }
+
+    if (response.statusCode != 201) {
+      throw Exception('Failed to submit baptism request');
+    }
+  }
+
+  static Future<Map<String, dynamic>> getBaptismRequestStatus(String authToken) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/member/baptism-request/status'),
+      headers: {'Authorization': 'Bearer $authToken'},
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to get baptism request status');
+    }
+
+    return jsonDecode(response.body);
+  }
 }
