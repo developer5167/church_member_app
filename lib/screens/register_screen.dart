@@ -937,6 +937,10 @@ class _RegisterScreenState extends State<RegisterScreen>
                                         value: 'regular',
                                         child: Text('Regular Member'),
                                       ),
+                                      DropdownMenuItem(
+                                        value: 'online viewer',
+                                        child: Text('Online Viewer'),
+                                      ),
                                     ],
                                     onChanged: (v) {
                                       HapticFeedback.selectionClick();

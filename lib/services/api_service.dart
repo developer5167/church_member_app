@@ -4,8 +4,8 @@ import 'package:church_member_app/utils/storage.dart';
 import 'package:http/http.dart' as http;
 
 class ApiService {
-  static const String baseUrl = 'http://13.201.163.103:4000/api'; //live
-  // static const String baseUrl = 'http://10.127.161.23:4000/api'; //home
+  // static const String baseUrl = 'http://13.201.163.103:4000/api'; //live
+  static const String baseUrl = 'http://10.127.161.23:4000/api'; //home
   // static const String baseUrl = 'http://192.168.15.187:4000/api'; //office
 
   static Future<void> saveProfile(
@@ -129,6 +129,8 @@ class ApiService {
       Uri.parse('$baseUrl/member/profile'),
       headers: {'Authorization': 'Bearer $authToken'},
     );
+    print('Got profile: ${response.body}');
+
     return jsonDecode(response.body);
   }
 
