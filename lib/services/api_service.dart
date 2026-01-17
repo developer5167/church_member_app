@@ -5,7 +5,7 @@ import 'package:http/http.dart' as http;
 
 class ApiService {
   // static const String baseUrl = 'http://13.201.163.103:4000/api'; //live
-  static const String baseUrl = 'http://10.127.161.23:4000/api'; //home
+  static const String baseUrl = 'http://10.223.152.23:4000/api'; //home
   // static const String baseUrl = 'http://192.168.15.187:4000/api'; //office
 
   static Future<void> saveProfile(
@@ -160,7 +160,9 @@ class ApiService {
 
     if (response.statusCode == 400) {
       final data = jsonDecode(response.body);
-      throw Exception(data['message'] ?? 'You already have a pending baptism request');
+      throw Exception(
+        data['message'] ?? 'You already have a pending baptism request',
+      );
     }
 
     if (response.statusCode != 201) {
@@ -168,7 +170,9 @@ class ApiService {
     }
   }
 
-  static Future<Map<String, dynamic>> getBaptismRequestStatus(String authToken) async {
+  static Future<Map<String, dynamic>> getBaptismRequestStatus(
+    String authToken,
+  ) async {
     final response = await http.get(
       Uri.parse('$baseUrl/member/baptism-request/status'),
       headers: {'Authorization': 'Bearer $authToken'},
@@ -176,6 +180,63 @@ class ApiService {
 
     if (response.statusCode != 200) {
       throw Exception('Failed to get baptism request status');
+    }
+
+    return jsonDecode(response.body);
+  }
+
+  // Volunteer APIs
+  static Future<List<dynamic>> getVolunteerDepartments(String authToken) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/member/volunteer-departments'),
+      headers: {'Authorization': 'Bearer $authToken'},
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to get volunteer departments');
+    }
+
+    final data = jsonDecode(response.body);
+    return data['data']['departments'];
+  }
+
+  static Future<Map<String, dynamic>> getVolunteerRequestStatus(
+    String authToken,
+  ) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/member/volunteer-requests/status'),
+      headers: {'Authorization': 'Bearer $authToken'},
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to get volunteer request status');
+    }
+
+    return jsonDecode(response.body);
+  }
+
+  static Future<Map<String, dynamic>> submitVolunteerRequest(
+    String authToken,
+    List<String> departmentNameIds,
+  ) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/member/volunteer-requests'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $authToken',
+      },
+      body: jsonEncode({'departmentNameIds': departmentNameIds}),
+    );
+
+    if (response.statusCode == 409) {
+      final data = jsonDecode(response.body);
+      throw Exception(
+        data['message'] ?? 'You already have a pending volunteer request',
+      );
+    }
+
+    if (response.statusCode != 201) {
+      throw Exception('Failed to submit volunteer request');
     }
 
     return jsonDecode(response.body);
