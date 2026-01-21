@@ -257,12 +257,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         const SizedBox(height: 60),
-        Container(
-          padding: const EdgeInsets.all(30),
-          decoration: BoxDecoration(
-            color: primaryColor.withOpacity(0.05),
-            shape: BoxShape.circle,
-          ),
+        ClipOval(
           child: Image.asset(
             FlavorConfig.instance.values.logoAsset,
             width: 140,
