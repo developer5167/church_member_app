@@ -51,6 +51,7 @@ class _LoginScreenState extends State<LoginScreen>
     phoneController.dispose();
     super.dispose();
   }
+
   // void sendOtp() async {
   //   if (phoneController.text.isEmpty) {
   //     HapticFeedback.lightImpact();
@@ -194,9 +195,10 @@ class _LoginScreenState extends State<LoginScreen>
   @override
   Widget build(BuildContext context) {
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle.light.copyWith(
-        statusBarColor: Colors.transparent,
-        statusBarIconBrightness: Brightness.dark,
+      value: const SystemUiOverlayStyle(
+        statusBarColor: Colors.white, // opaque white bar on Android
+        statusBarIconBrightness: Brightness.dark, // dark icons on Android
+        statusBarBrightness: Brightness.light, // dark icons on iOS
       ),
       child: Scaffold(
         body: Container(
@@ -237,9 +239,11 @@ class _LoginScreenState extends State<LoginScreen>
                                 ),
                               ],
                             ),
-                            child: Image.asset(
-                              FlavorConfig.instance.values.logoAsset,
-                              fit: BoxFit.contain,
+                            child: ClipOval(
+                              child: Image.asset(
+                                FlavorConfig.instance.values.logoAsset,
+                                fit: BoxFit.contain,
+                              ),
                             ),
                           ),
                         ),

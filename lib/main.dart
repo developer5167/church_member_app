@@ -1,18 +1,24 @@
 import 'package:church_member_app/firebase_options.dart';
-import 'package:church_member_app/screens/qr_scan_screen.dart';
-import 'package:church_member_app/screens/home_screen.dart';
-import 'package:church_member_app/utils/storage.dart';
+import 'package:church_member_app/screens/splash_screen.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'flavor/app_flavor.dart';
 import 'flavor/flavor_config.dart';
 import 'flavor/flavor_platform.dart';
 import 'flavor/flavor_values.dart';
-import 'screens/login_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
+  SystemChrome.setSystemUIOverlayStyle(
+    const SystemUiOverlayStyle(
+      statusBarColor: Colors.white, // solid white bar on Android
+      statusBarIconBrightness: Brightness.dark, // dark icons on Android
+      statusBarBrightness: Brightness.light, // dark icons on iOS
+    ),
+  );
 
   final flavor = await FlavorPlatform.getFlavor();
   late AppFlavor appFlavor;
@@ -50,15 +56,16 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Church Attendance',
-      home: FutureBuilder(
-        future: Storage.getToken(),
-        builder: (context, snapshot) {
-          if (!snapshot.hasData || snapshot.data == null) {
-            return const LoginScreen();
-          }
-          return const HomeScreen();
-        },
+      theme: ThemeData(
+        appBarTheme: const AppBarTheme(
+          systemOverlayStyle: SystemUiOverlayStyle(
+            statusBarColor: Colors.white, // solid white on Android
+            statusBarIconBrightness: Brightness.dark, // dark icons Android
+            statusBarBrightness: Brightness.light, // dark icons iOS
+          ),
+        ),
       ),
+      home: const SplashScreen(),
     );
   }
 }

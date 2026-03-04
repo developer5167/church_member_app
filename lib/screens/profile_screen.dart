@@ -1,9 +1,11 @@
 import 'dart:async';
 import 'package:church_member_app/flavor/flavor_config.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../screens/login_screen.dart';
 import '../services/api_service.dart';
 import '../utils/storage.dart';
 import '../models/volunteer_models.dart';
@@ -419,6 +421,82 @@ class _ProfileScreenState extends State<ProfileScreen>
     );
   }
 
+  Future<void> _handleLogout() async {
+    final confirmed = await _showLogoutDialog();
+    if (!confirmed) return;
+
+    HapticFeedback.mediumImpact();
+    await Storage.clearAll();
+
+    if (!mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
+      (_) => false,
+    );
+  }
+
+  Future<bool> _showLogoutDialog() async {
+    final isIOS = Theme.of(context).platform == TargetPlatform.iOS;
+
+    if (isIOS) {
+      return await showCupertinoDialog<bool>(
+            context: context,
+            builder: (ctx) => CupertinoAlertDialog(
+              title: const Text('Log Out'),
+              content: const Text('Are you sure you want to log out?'),
+              actions: [
+                CupertinoDialogAction(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: const Text('Cancel'),
+                ),
+                CupertinoDialogAction(
+                  isDestructiveAction: true,
+                  onPressed: () => Navigator.pop(ctx, true),
+                  child: const Text('Log Out'),
+                ),
+              ],
+            ),
+          ) ??
+          false;
+    } else {
+      return await showDialog<bool>(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              title: const Text(
+                'Log Out',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              content: const Text('Are you sure you want to log out?'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: const Text(
+                    'Cancel',
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                ),
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(ctx, true),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red[400],
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    elevation: 0,
+                  ),
+                  child: const Text('Log Out'),
+                ),
+              ],
+            ),
+          ) ??
+          false;
+    }
+  }
+
   @override
   void dispose() {
     _animationController.dispose();
@@ -466,6 +544,11 @@ class _ProfileScreenState extends State<ProfileScreen>
                 size: 28,
               ),
             ),
+          IconButton(
+            onPressed: _handleLogout,
+            icon: const Icon(Icons.logout_rounded, color: Colors.red, size: 24),
+            tooltip: 'Log Out',
+          ),
         ],
       ),
       body: loading

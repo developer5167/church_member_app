@@ -5,7 +5,7 @@ import 'package:http/http.dart' as http;
 
 class ApiService {
   // static const String baseUrl = 'http://10.194.100.23:4000/api'; //live
-  static const String baseUrl = 'http://192.168.31.196:4000/api'; //home
+  static const String baseUrl = 'http://192.168.15.165:4000/api'; //home
   // static const String baseUrl = 'http://192.168.15.187:4000/api'; //office
 
   static Future<void> saveProfile(
@@ -240,5 +240,40 @@ class ApiService {
     }
 
     return jsonDecode(response.body);
+  }
+
+  static Future<Map<String, dynamic>> submitPrayerRequest(
+    String authToken,
+    String subject,
+    String description,
+  ) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/member/prayer-requests'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $authToken',
+      },
+      body: jsonEncode({'subject': subject, 'description': description}),
+    );
+
+    if (response.statusCode != 201) {
+      throw Exception('Failed to submit prayer request');
+    }
+
+    return jsonDecode(response.body);
+  }
+
+  static Future<List<dynamic>> getMyPrayerRequests(String authToken) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/member/prayer-requests'),
+      headers: {'Authorization': 'Bearer $authToken'},
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to fetch prayer requests');
+    }
+
+    final data = jsonDecode(response.body);
+    return data['requests'];
   }
 }

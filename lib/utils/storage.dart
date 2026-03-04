@@ -10,4 +10,9 @@ class Storage {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString('token');
   }
+
+  static Future<void> clearAll() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.clear();
+  }
 }
