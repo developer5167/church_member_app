@@ -20,7 +20,7 @@ import UIKit
         result(flavor)
       } else {
         result(FlutterMethodNotImplemented)
-      }
+      } 
     }
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
