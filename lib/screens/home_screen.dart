@@ -153,6 +153,10 @@ class _HomeScreenState extends State<HomeScreen> {
     } catch (_) {}
   }
 
+  Future<void> _refreshDashboard() async {
+    await Future.wait([_fetchBaptismStatus(), _fetchVolunteerStatus()]);
+  }
+
   void _showMessage(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -276,106 +280,112 @@ class _HomeScreenState extends State<HomeScreen> {
 
         // ── Body ──
         body: SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Church logo card
-                _buildHeader(primary),
+          child: RefreshIndicator(
+            onRefresh: _refreshDashboard,
+            color: primary,
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Church logo card
+                  _buildHeader(primary),
 
-                const SizedBox(height: 28),
+                  const SizedBox(height: 28),
 
-                const Text(
-                  'Quick Actions',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
+                  const Text(
+                    'Quick Actions',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 16),
+                  const SizedBox(height: 16),
 
-                // 2×2 grid
-                GridView.count(
-                  crossAxisCount: 2,
-                  crossAxisSpacing: 16,
-                  mainAxisSpacing: 16,
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  children: [
-                    _dashCard(
-                      icon: Icons.volunteer_activism_rounded,
-                      label: 'Sow',
-                      subtitle: 'Give your offering',
-                      color: const Color(0xFF6C63FF),
-                      isLoading: _loadingSow,
-                      onTap: _fetchSowLink,
-                    ),
-                    _dashCard(
-                      icon: Icons.qr_code_scanner_rounded,
-                      label: 'Scan QR',
-                      subtitle: 'Mark attendance',
-                      color: const Color(0xFF00BFA6),
-                      onTap: () {
-                        HapticFeedback.selectionClick();
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const QrScanScreen(embedded: false),
-                          ),
-                        );
-                      },
-                    ),
-                    _dashCard(
-                      icon: Icons.send_rounded,
-                      label: 'Prayer Request',
-                      subtitle: 'Send a request',
-                      color: const Color(0xFFF06292),
-                      onTap: () {
-                        HapticFeedback.selectionClick();
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const SendPrayerRequestScreen(),
-                          ),
-                        );
-                      },
-                    ),
-                    _dashCard(
-                      icon: Icons.list_alt_rounded,
-                      label: 'My Prayers',
-                      subtitle: 'View my requests',
-                      color: const Color(0xFFFF8F00),
-                      onTap: () {
-                        HapticFeedback.selectionClick();
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const MyPrayerRequestsScreen(),
-                          ),
-                        );
-                      },
-                    ),
-                  ],
-                ),
+                  // 2×2 grid
+                  GridView.count(
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 16,
+                    mainAxisSpacing: 16,
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    children: [
+                      _dashCard(
+                        icon: Icons.volunteer_activism_rounded,
+                        label: 'Sow',
+                        subtitle: 'Give your offering',
+                        color: const Color(0xFF6C63FF),
+                        isLoading: _loadingSow,
+                        onTap: _fetchSowLink,
+                      ),
+                      _dashCard(
+                        icon: Icons.qr_code_scanner_rounded,
+                        label: 'Scan QR',
+                        subtitle: 'Mark attendance',
+                        color: const Color(0xFF00BFA6),
+                        onTap: () {
+                          HapticFeedback.selectionClick();
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) =>
+                                  const QrScanScreen(embedded: false),
+                            ),
+                          );
+                        },
+                      ),
+                      _dashCard(
+                        icon: Icons.send_rounded,
+                        label: 'Prayer Request',
+                        subtitle: 'Send a request',
+                        color: const Color(0xFFF06292),
+                        onTap: () {
+                          HapticFeedback.selectionClick();
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const SendPrayerRequestScreen(),
+                            ),
+                          );
+                        },
+                      ),
+                      _dashCard(
+                        icon: Icons.list_alt_rounded,
+                        label: 'My Prayers',
+                        subtitle: 'View my requests',
+                        color: const Color(0xFFFF8F00),
+                        onTap: () {
+                          HapticFeedback.selectionClick();
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const MyPrayerRequestsScreen(),
+                            ),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
 
-                const SizedBox(height: 28),
+                  const SizedBox(height: 28),
 
-                // ── Get Involved ──
-                _buildGetInvolvedSection(),
+                  // ── Get Involved ──
+                  _buildGetInvolvedSection(),
 
-                const SizedBox(height: 20),
+                  const SizedBox(height: 20),
 
-                // Verse card
-                _buildVerseCard(),
+                  // Verse card
+                  _buildVerseCard(),
 
-                const SizedBox(height: 12),
-              ],
-            ),
-          ),
-        ),
-      ),
+                  const SizedBox(height: 12),
+                ],
+              ),
+            ), // SingleChildScrollView
+          ), // RefreshIndicator
+        ), // SafeArea
+      ), // WillPopScope
     );
   }
 
@@ -421,9 +431,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 const SizedBox(height: 5),
                 const Text(
-                  '"God loves a cheerful giver." — 2 Cor 9:7',
+                  '"Where two or three gather in my name, there am I." — Matt 18:20',
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: 13,
                     color: Colors.black54,
                     fontStyle: FontStyle.italic,
                     height: 1.4,
